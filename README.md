@@ -11,8 +11,11 @@ This repository is a focused extraction from the original thesis development rep
 - `planners/rapf_paper_planner.py` — paper-oriented planner implementation retained from the source repository.
 - `simulation/` — the environment, obstacle, and adapter modules required by the demonstration.
 - `demos/replay_RAPF_v4.py` — a single-agent simulation and visualization.
+- `benchmark/benchmark_sensing_RAPF.py` — the sensing and replanning benchmark for `RAPF_Agent_v4`.
+- `experiments/benchmarks/` — preserved 2,500-episode result tables.
+- `experiments/optuna/` — the retained RAPF v3 tuning script and original Optuna database, included as parameter-development provenance.
 
-Development caches, parameter-tuning databases, obsolete agent versions, swarm experiments, patches, and bulk generated results from the original repository are intentionally excluded.
+Development caches, unrelated swarm experiments, obsolete tuning databases, patches, and bulk generated media from the original repository are intentionally excluded.
 
 ## Installation
 
@@ -49,6 +52,16 @@ python -m demos.replay_RAPF_v4 --scenario B --seed 42 --steps 1000 --speed 1
 ```
 
 The demonstration generates a lunar-style obstacle environment, simulates one agent with incrementally perceived obstacles, and displays the executed and currently planned paths.
+
+## Experiments
+
+Install the additional dependencies with:
+
+```bash
+python -m pip install -r requirements-experiments.txt
+```
+
+The preserved benchmark, tuning database, result tables, and analysis commands are documented in [`experiments/README.md`](experiments/README.md). The Optuna artifacts tune RAPF v3 and are retained as provenance; they do not directly tune the v4 agent.
 
 ## Repository status
 

@@ -9,6 +9,8 @@ This file records issues found while extracting the R2APF code from `swarm_apf_s
 - [ ] Add deterministic reference outputs for selected seeds and scenarios.
 - [ ] Confirm that all scenarios supported by `make_config` work with the extracted demonstration.
 - [ ] Decide whether the paper experiments require additional source files beyond the current single-agent execution path.
+- [ ] Establish and document how the Optuna-tuned RAPF v3 parameters map to `RAPF_V4_PARAMS` and `RAPFGlobalPlanner`.
+- [ ] Identify the exact command, commit, and parameter set that generated each preserved sensing benchmark table.
 - [ ] Replace the broken root `main.py` from the old repository only after defining the intended public command-line interface. It was not copied because it references modules that are no longer present.
 
 ## Parameters and behavior to review
@@ -30,7 +32,9 @@ This file records issues found while extracting the R2APF code from `swarm_apf_s
 ## Benchmarking
 
 - [ ] Correct ambiguous benchmark labels, including code that refers to an improved planner as `oldRAPF`, before publishing new comparison results.
-- [ ] Separate core runtime dependencies from optional Optuna/tuning dependencies.
+- [x] Separate core runtime dependencies from optional Optuna/tuning dependencies.
+- [ ] Replace hard-coded analysis input paths with command-line arguments after the historical baseline is protected by tests.
+- [ ] Decide which of `sensing_v4.csv`, `sensing_v4_withvo.csv`, `sensing_v4_manual.csv`, and `sensing_v4_oldRAPF.csv` are publication results versus intermediate runs.
 - [ ] Add classical APF and the original RAPF configuration as contribution/ablation baselines.
 - [ ] Add D* Lite and RRT* as comparison planners.
 - [ ] Use wall-clock time and collision checks for comparisons across planner families; do not compare unlike iteration definitions directly.

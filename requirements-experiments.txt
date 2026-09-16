@@ -1,0 +1,6 @@
+-r requirements.txt
+optuna==4.6.0
+pandas==2.3.3
+
+# Optional database viewer:
+# optuna-dashboard==0.20.0

@@ -1,0 +1,4 @@
+Scenario,Reachability (%),Paper Ref (%),Diff (%),Avg Path (m),Avg Collisions,Avg Planning Steps
+A,98.2,96.4,1.7999999999999972,43.2,0.0,291.7
+B,98.6,93.8,4.799999999999997,43.45,0.0,311.8
+C,98.4,91.8,6.6000000000000085,43.61,0.0,336.3

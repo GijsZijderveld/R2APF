@@ -19,7 +19,7 @@ Development caches, unrelated swarm experiments, obsolete tuning databases, patc
 
 ## Installation
 
-Python 3.8 or newer is recommended.
+Python 3.10 or newer is required.
 
 ```bash
 git clone https://github.com/GijsZijderveld/R2APF.git
@@ -62,6 +62,8 @@ python -m pip install -r requirements-experiments.txt
 ```
 
 The preserved benchmark, tuning database, result tables, and analysis commands are documented in [`experiments/README.md`](experiments/README.md). The Optuna artifacts tune RAPF v3 and are retained as provenance; they do not directly tune the v4 agent.
+
+A modular planner-comparison framework is documented in [`comparison/README.md`](comparison/README.md). It wraps the unchanged RAPF v4 agent and provides a shared sensing, execution, collision, and metric layer for new baseline planners.
 
 ## Repository status
 

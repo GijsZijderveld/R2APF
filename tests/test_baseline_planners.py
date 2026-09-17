@@ -54,7 +54,8 @@ class BaselinePlannerTests(unittest.TestCase):
         self.assertGreater(second.diagnostics["changed_cells"], 0)
 
     def test_rrt_star_is_deterministic_for_fixed_seed(self):
-        planner = RRTStarPlanner(max_samples=1500, seed=123)
+        planner = RRTStarPlanner(max_samples=1500, seed_offset=123)
+        planner.reset(42)
         first = planner.plan(START, GOAL, [Circle(3.0, 3.0, 0.8)], BOUNDS)
         second = planner.plan(START, GOAL, [Circle(3.0, 3.0, 0.8)], BOUNDS)
         self.assertTrue(first.success, first.failure_reason)

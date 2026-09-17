@@ -1,29 +1,46 @@
 # Baseline planners
 
-Each comparison planner should implement the `Planner` protocol from
+All baseline planners implement the `Planner` protocol from
 `comparison/interfaces.py` and return a `PlanningResult`.
 
-Planned baselines:
+## Implemented planners
 
-1. Classical APF — contribution baseline.
-2. A* or Theta* — recognizable graph-search baseline.
-3. D* Lite — incremental replanning baseline for newly discovered obstacles.
-4. RRT* — sampling-based baseline.
+- `APFPlanner`: deterministic classical attractive/repulsive APF. Local-minimum
+  and blocked-path failures are reported rather than hidden by RAPF escape logic.
+- `AStarPlanner`: deterministic occupancy-grid A*.
+- `DStarLitePlanner`: incremental D* Lite that preserves and repairs search
+  state when new obstacles become known.
+- `RRTStarPlanner`: seeded two-dimensional RRT* with parent selection and
+  rewiring.
 
-The planner modules should contain planning logic only. Shared sensing,
-path invalidation, movement, collision checks, stopping conditions, and metrics
-belong in `comparison/`.
+A* and D* Lite share `grid.py`, so they use identical resolution,
+rasterization, obstacle inflation, connectivity, costs, and diagonal-corner
+rules. Shared sensing, path invalidation, movement, collision reporting,
+stopping conditions, and metrics remain in `comparison/`.
 
-Register a planner without changing the benchmark runner:
+The common policy is `configs/comparison_policy.yaml`. Planner-specific
+parameters are explicit in `configs/planners/`.
 
-```python
-from comparison.registry import register_planner
-from planners.baselines.astar import AStarPlanner
+## Run a smoke comparison
 
-register_planner("astar", lambda config: AStarPlanner(**config))
+```bash
+python scripts/run_comparison.py \
+  --planner astar \
+  --planner-config configs/planners/astar.json \
+  --episodes 1 \
+  --output experiments/comparisons/astar_smoke.csv
 ```
 
-Do not compare planner-specific counters directly. For example, an A* node
-expansion, an RRT* sample, and an RAPF potential evaluation are not equivalent.
-Store those values as diagnostics and use success, path length, collisions,
-wall-clock planning time, and replans as the common comparison metrics.
+Replace `astar` with `apf`, `dstar_lite`, or `rrt_star` and select the
+matching configuration file.
+
+Run contract tests with:
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+Do not compare planner-specific counters directly. An A* expansion, an RRT*
+sample, and an R2APF potential evaluation are not equivalent. Use success,
+executed path length, collisions, wall-clock planning time, and replans as the
+common comparison metrics.

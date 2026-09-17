@@ -1,0 +1,14 @@
+{
+  "scenarios": ["A", "B", "C", "D", "E"],
+  "seed_start": 5000,
+  "episodes_per_scenario": 500,
+  "dt": 0.1,
+  "speed_limit": 1.0,
+  "max_steps": 1000,
+  "agent_radius": 0.3,
+  "goal_tolerance": 0.5,
+  "sensing_range": 3.0,
+  "sensing_pad": 0.05,
+  "lookahead_segments": 8,
+  "stop_on_collision": false
+}

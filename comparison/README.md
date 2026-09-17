@@ -3,6 +3,22 @@
 This package provides the controlled layer for comparing R2APF with other
 planning families without modifying the historical RAPF implementation.
 
+## Comparison policy
+
+`configs/comparison_policy.yaml` is the single source of truth for physical,
+sensing, execution, fairness, and reporting choices. It contains two separate
+profiles:
+
+- `historical_r2apf` records the values actually used by the preserved RAPF
+  implementation, including conflicting values that belong to different
+  historical purposes.
+- `controlled_comparison` defines the common contract that all planners must
+  obey in the new comparison.
+
+Do not silently replace inherited historical values with controlled-comparison
+values. Parameters marked `open` or `provisional` must be resolved through
+the publication gate before the full experiment campaign.
+
 ## Design
 
 - `RAPFAgentV4Adapter` delegates to `agents/RAPF_Agent_v4.py`.
@@ -25,12 +41,13 @@ but that must be reported separately because it is not the historical v4 agent.
 
 ## Add a baseline
 
-1. Create a module in `planners/baselines/`.
-2. Implement `Planner.plan(...)`.
-3. Return `PlanningResult`.
-4. Register a factory through `comparison.registry.register_planner`.
-5. Add its complete parameters to `configs/planners/`.
-6. Run the contract tests and a deterministic smoke campaign.
+1. Read and follow `configs/comparison_policy.yaml`.
+2. Create a module in `planners/baselines/`.
+3. Implement `Planner.plan(...)`.
+4. Return `PlanningResult`.
+5. Register a factory through `comparison.registry.register_planner`.
+6. Add its complete parameters to `configs/planners/`.
+7. Run the contract tests and a deterministic smoke campaign.
 
 Keep planner-specific effort counters in `PlanningResult.diagnostics`. Common
 claims should use success, executed path length, collisions, planning time, and

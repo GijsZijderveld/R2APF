@@ -51,7 +51,9 @@ class NavigationAgent:
         self._total_obstacles = 0
 
     def reset(self, environment: Any, seed: int) -> None:
-        del seed
+        planner_reset = getattr(self.planner, "reset", None)
+        if callable(planner_reset):
+            planner_reset(seed)
         self._position = np.asarray(
             environment.starts[self.agent_id], dtype=float
         ).copy()

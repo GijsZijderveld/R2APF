@@ -1,0 +1,391 @@
+# R2APF planner-comparison policy
+#
+# This file is the single source of truth for experimental choices.
+# It deliberately records historical values separately from controlled-comparison
+# values. Historical values must not be silently rewritten to match the new
+# comparison policy.
+#
+# Status values:
+#   inherited  - already used by the historical RAPF implementation
+#   decided    - frozen for the controlled comparison
+#   provisional - selected for initial sensitivity/testing
+#   open       - must be decided before publication experiments
+
+policy_version: 1
+units:
+  distance: m
+  time: s
+  angle: deg
+
+historical_r2apf:
+  description: >
+    Values used by the preserved RAPF v4 code and historical benchmark.
+    Multiple values are retained where different subsystems intentionally or
+    historically used different definitions.
+
+  footprint_and_collision:
+    planner_clearance_radius:
+      value: 0.30
+      status: inherited
+      source: agents/RAPF_Agent_v4.py:RHO_L
+      purpose: RAPF potential-field collision avoidance and path-corridor validation
+
+    movement_gate_radius:
+      value: 0.10
+      status: inherited
+      source: agents/RAPF_Agent_v4.py:_move_towards
+      purpose: Prevent movement segments from clipping sensed obstacles
+
+    sensing_benchmark_collision_clearance:
+      value: 0.10
+      status: inherited
+      source: benchmark/benchmark_sensing_RAPF.py
+      purpose: Historical collision-count threshold measured from obstacle surface
+
+    generic_simulator_obstacle_clearance:
+      value: 0.20
+      status: inherited
+      source: simulation/constants.py:ROBOT_CLEARANCE
+      purpose: Collision reporting in the legacy generic simulator
+
+    generic_simulator_agent_radius:
+      value: 0.20
+      status: inherited
+      source: simulation/constants.py:ROBOT_RADIUS
+      purpose: Agent-to-agent collision reporting in the legacy simulator
+
+    note: >
+      These values are not equivalent. They are preserved because changing them
+      would change the historical RAPF behavior or historical metric definition.
+
+  goal:
+    agent_goal_tolerance:
+      value: 0.50
+      status: inherited
+      source: agents/RAPF_Agent_v4.py:GOAL_TOLERANCE
+      purpose: RAPF v4 sets done when goal distance is below this value
+
+    global_planner_default_tolerance:
+      value: 0.80
+      status: inherited
+      source: planners/rapf_global_planner.py:GOAL_TOLERANCE
+      effective_in_v4: false
+      note: RAPF_Agent_v4 passes its 0.50 value into RAPFGlobalPlanner
+
+    generic_simulator_goal_radius:
+      value: 1.00
+      status: inherited
+      source: simulation/constants.py:GOAL_RADIUS
+      purpose: Legacy generic simulator success region
+
+  sensing:
+    range:
+      value: 3.00
+      status: inherited
+    discrete_step_pad:
+      value: 0.05
+      status: inherited
+      note: This is a sensing pad, not a physical collision safety margin
+    field_of_view_enabled:
+      value: false
+      status: inherited
+    stored_field_of_view:
+      value: 62.0
+      status: inherited
+      effective_when_disabled: false
+    obstacle_discovery_rule:
+      value: obstacle_surface_distance_lt_sensing_range_plus_pad
+      status: inherited
+    revealed_geometry:
+      value: complete_circle_center_and_radius
+      status: inherited
+
+  replanning:
+    lookahead_segments:
+      value: 8
+      status: inherited
+    triggers:
+      - no_current_path
+      - current_path_consumed
+      - sensed_obstacle_intersects_upcoming_corridor
+      - movement_gate_blocks_next_step
+      - replan_after_backtracking_escape
+    status: inherited
+
+  execution:
+    timestep:
+      value: 0.10
+      status: inherited
+    maximum_speed:
+      value: 1.00
+      status: inherited
+    maximum_steps:
+      value: 1000
+      status: inherited
+    maximum_internal_planning_steps:
+      value: 5000
+      status: inherited
+      note: This is an iteration limit, not a wall-clock time limit
+
+  random_seeds:
+    scenarios: [A, B, C, D, E]
+    first_seed: 5000
+    episodes_per_scenario: 500
+    last_seed_inclusive: 5499
+    status: inherited
+
+  path_processing:
+    simplification: false
+    smoothing: false
+    execution: strict_waypoint_following
+    status: inherited
+
+  timing:
+    historical_compute_time:
+      includes: complete_episode_wall_time
+      source: benchmark/benchmark_sensing_RAPF.py
+      status: inherited
+    planner_only_time:
+      value: null
+      status: open
+      note: The unchanged RAPF v4 agent does not currently expose planner-only time
+
+controlled_comparison:
+  description: >
+    Common definitions for new planner comparisons. These values do not replace
+    the historical profile and must be applied to every comparison planner.
+
+  physical_rover:
+    radius:
+      value: 0.30
+      status: decided
+      rationale: >
+        Matches the RAPF planning clearance RHO_L and is used as the common
+        continuous collision footprint.
+    safety_margin:
+      value: 0.00
+      status: decided
+      rationale: >
+        Avoids double-counting clearance because the chosen 0.30 m radius is
+        already the RAPF safety/footprint radius. This is independent of the
+        0.05 m sensing pad.
+
+  goal:
+    tolerance:
+      value: 0.50
+      status: decided
+      rationale: Matches the unchanged RAPF v4 completion condition
+    success_requires_zero_collisions:
+      value: true
+      status: decided
+    stop_simulation_on_first_collision:
+      value: false
+      status: decided
+      rationale: >
+        Continue the episode to record distance travelled and final goal
+        distance, but classify the episode as unsuccessful if any collision occurs.
+
+  sensing:
+    range:
+      value: 3.00
+      status: decided
+    discrete_step_pad:
+      value: 0.05
+      status: decided
+    field_of_view_enabled:
+      value: false
+      status: decided
+    stored_field_of_view:
+      value: 62.0
+      status: decided
+      effective_when_disabled: false
+    obstacle_discovery_rule:
+      value: obstacle_surface_distance_lt_sensing_range_plus_pad
+      status: decided
+    revealed_geometry:
+      value: complete_circle_center_and_radius
+      status: decided
+      rationale: Matches the sensing assumption used by RAPF v4
+
+  graph:
+    resolution:
+      value: 0.30
+      status: provisional
+      rationale: >
+        Equals the controlled rover radius and gives a 100 by 100 grid on the
+        30 m environment. Validate against 0.15 m and 0.60 m.
+    sensitivity_values: [0.15, 0.30, 0.60]
+    origin:
+      value: [0.0, 0.0]
+      status: decided
+    environment_bounds:
+      value: [0.0, 30.0, 0.0, 30.0]
+      order: [xmin, xmax, ymin, ymax]
+      status: decided
+    outside_boundary:
+      value: occupied
+      status: decided
+    connectivity:
+      value: 8
+      status: decided
+    diagonal_corner_cutting:
+      value: forbidden
+      status: decided
+    orthogonal_move_cost:
+      value: grid_resolution
+      status: decided
+    diagonal_move_cost:
+      value: sqrt_2_times_grid_resolution
+      status: decided
+    obstacle_inflation:
+      value: obstacle_radius_plus_physical_rover_radius_plus_safety_margin
+      status: decided
+    occupied_cell_rule:
+      value: cell_center_inside_inflated_obstacle
+      status: provisional
+      validation: continuous_segment_collision_check
+
+  replanning:
+    lookahead_segments:
+      value: 8
+      status: decided
+    triggers:
+      - no_current_path
+      - current_path_consumed
+      - newly_known_obstacle_invalidates_upcoming_path
+      - movement_collision_gate_blocks_next_step
+    status: decided
+    note: >
+      D* Lite may repair its existing search state internally, but receives the
+      same obstacle update and external replanning event.
+
+  execution:
+    timestep:
+      value: 0.10
+      status: decided
+    maximum_speed:
+      value: 1.00
+      status: decided
+    maximum_steps:
+      value: 1000
+      status: decided
+
+  planning_budget:
+    maximum_wall_time_per_call:
+      value: null
+      status: open
+      rationale_needed: Benchmark RAPF and grid runtimes before freezing a limit
+    rrt_star_maximum_samples:
+      value: null
+      status: open
+      rationale_needed: Determine through convergence and runtime sensitivity study
+    rrt_star_maximum_wall_time:
+      value: null
+      status: open
+      rationale_needed: Must be consistent with the selected computation policy
+
+  random_seeds:
+    scenarios: [A, B, C, D, E]
+    environment_first_seed: 5000
+    episodes_per_scenario: 500
+    environment_last_seed_inclusive: 5499
+    status: decided
+    randomized_planner_seed:
+      rule: environment_seed_plus_fixed_offset
+      fixed_offset:
+        value: 100000
+        status: provisional
+      rationale: >
+        Separates planner randomness from environment generation while remaining
+        deterministic and paired across repeated experiments.
+
+  collision:
+    geometric_definition:
+      value: center_distance_lt_obstacle_radius_plus_physical_rover_radius_plus_safety_margin
+      status: decided
+    path_validation:
+      value: continuous_line_segment_against_inflated_circles
+      status: decided
+    reporting:
+      count_collision_steps: true
+      count_episode_with_any_collision: true
+      minimum_clearance: true
+      status: decided
+
+  planning_time:
+    starts: immediately_before_map_conversion_and_planner_call
+    stops: when_planner_returns_success_or_failure
+    includes:
+      - newly_sensed_obstacle_conversion
+      - occupancy_grid_update
+      - search_or_sampling
+      - path_reconstruction
+    excludes:
+      - environment_generation
+      - vehicle_motion
+      - plotting
+      - csv_writing
+      - unrelated_simulation_bookkeeping
+    status: decided
+    rapf_measurement:
+      value: null
+      status: open
+      note: Add non-invasive timing around RAPFGlobalPlanner.plan without editing it
+
+  path_processing:
+    simplification:
+      value: false
+      status: decided_for_initial_comparison
+    smoothing:
+      value: false
+      status: decided_for_initial_comparison
+    report_raw_planned_path:
+      value: true
+      status: decided
+    report_executed_path:
+      value: true
+      status: decided
+    note: >
+      A later, separately labelled experiment may add identical line-of-sight
+      simplification to A* and D* Lite.
+
+  common_metrics:
+    primary:
+      - success_rate
+      - episodes_with_collision
+      - executed_path_length
+      - normalized_executed_path_length
+      - final_goal_distance
+      - execution_steps
+      - planning_calls
+      - replans
+      - total_planning_time
+      - maximum_planning_time
+      - planning_time_p95
+      - sensed_obstacle_ratio
+    optional:
+      - minimum_obstacle_clearance
+      - distance_travelled_before_failure
+      - oracle_path_suboptimality
+      - peak_memory
+    planner_specific_diagnostics:
+      astar: [expanded_nodes, collision_checks]
+      dstar_lite: [expanded_vertices, updated_vertices, collision_checks]
+      rrt_star: [samples, rewires, collision_checks]
+      r2apf: [planning_effort, virtual_obstacles_created, blocked_steps]
+    note: >
+      Planner-specific counters are diagnostic and must not be compared as
+      equivalent computational units.
+
+publication_gate:
+  must_be_resolved_before_full_campaign:
+    - controlled_comparison.graph.resolution
+    - controlled_comparison.graph.occupied_cell_rule
+    - controlled_comparison.planning_budget.maximum_wall_time_per_call
+    - controlled_comparison.planning_budget.rrt_star_maximum_samples
+    - controlled_comparison.planning_budget.rrt_star_maximum_wall_time
+    - controlled_comparison.random_seeds.randomized_planner_seed.fixed_offset
+    - controlled_comparison.planning_time.rapf_measurement
+  rule: >
+    Do not run or label a full publication campaign until every item above has
+    status decided and the comparison implementation has contract tests.

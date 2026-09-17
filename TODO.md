@@ -36,8 +36,10 @@ This file records issues found while extracting the R2APF code from `swarm_apf_s
 - [x] Separate core runtime dependencies from optional Optuna/tuning dependencies.
 - [ ] Replace hard-coded analysis input paths with command-line arguments after the historical baseline is protected by tests.
 - [ ] Decide which of `sensing_v4.csv`, `sensing_v4_withvo.csv`, `sensing_v4_manual.csv`, and `sensing_v4_oldRAPF.csv` are publication results versus intermediate runs.
-- [ ] Add classical APF and the original RAPF configuration as contribution/ablation baselines.
-- [ ] Add D* Lite and RRT* as comparison planners.
+- [x] Add basic classical APF, A*, D* Lite, and RRT* planner implementations.
+- [ ] Add the original RAPF configuration as a separate contribution/ablation baseline.
+- [ ] Validate and tune every new baseline through sensitivity studies before publication experiments.
+- [ ] Decide how many consecutive identical planning failures terminate an episode; classical APF can otherwise repeat the same local-minimum failure until `max_steps`.
 - [ ] Add non-invasive planner-only timing for the unchanged RAPF v4 agent; the adapter currently reports no RAPF planning time.
 - [ ] Use wall-clock time and collision checks for comparisons across planner families; do not compare unlike iteration definitions directly.
 - [ ] Define common sensing, execution, collision checking, stopping criteria, random seeds, and computation budgets.

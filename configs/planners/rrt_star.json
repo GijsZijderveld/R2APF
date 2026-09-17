@@ -6,5 +6,5 @@
   "goal_tolerance": 0.5,
   "agent_radius": 0.3,
   "safety_margin": 0,
-  "seed": 100000
+  "seed_offset": 100000
 }

@@ -6,7 +6,7 @@ preserved historical tables in `experiments/benchmarks/`.
 Start with a short R2APF smoke campaign:
 
 ```bash
-python scripts/run_comparison.py \
+python -m scripts.run_comparison \
   --planner r2apf \
   --planner-config configs/planners/r2apf.json \
   --episodes 1 \

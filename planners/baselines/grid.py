@@ -92,6 +92,8 @@ class GridMap:
         )
 
     def neighbors(self, cell: Cell) -> Iterator[tuple[Cell, float]]:
+        if not self.is_free(cell):
+            return
         directions = [(1, 0), (-1, 0), (0, 1), (0, -1)]
         if self.connectivity == 8:
             directions += [(1, 1), (1, -1), (-1, 1), (-1, -1)]

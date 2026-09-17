@@ -5,6 +5,7 @@ This file records issues found while extracting the R2APF code from `swarm_apf_s
 ## Reproducibility and entry points
 
 - [ ] Add a small automated smoke test for the documented demonstration.
+- [ ] Run the new comparison contract tests and R2APF smoke campaign in a clean checkout.
 - [ ] Record the Python and dependency versions used for the final paper experiments.
 - [ ] Add deterministic reference outputs for selected seeds and scenarios.
 - [ ] Confirm that all scenarios supported by `make_config` work with the extracted demonstration.
@@ -37,6 +38,7 @@ This file records issues found while extracting the R2APF code from `swarm_apf_s
 - [ ] Decide which of `sensing_v4.csv`, `sensing_v4_withvo.csv`, `sensing_v4_manual.csv`, and `sensing_v4_oldRAPF.csv` are publication results versus intermediate runs.
 - [ ] Add classical APF and the original RAPF configuration as contribution/ablation baselines.
 - [ ] Add D* Lite and RRT* as comparison planners.
+- [ ] Add non-invasive planner-only timing for the unchanged RAPF v4 agent; the adapter currently reports no RAPF planning time.
 - [ ] Use wall-clock time and collision checks for comparisons across planner families; do not compare unlike iteration definitions directly.
 - [ ] Define common sensing, execution, collision checking, stopping criteria, random seeds, and computation budgets.
 - [ ] Report success rate, executed path length, planning time, replans, collision/failure rate, and distance travelled before failure.

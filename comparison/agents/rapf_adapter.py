@@ -24,6 +24,7 @@ class RAPFAgentV4Adapter:
         self.default_speed_limit = float(speed_limit)
         self.rapf_params = dict(rapf_params)
         self._agent: RAPF_Agent_v4 | None = None
+        self._total_obstacles = 0
 
     @property
     def wrapped_agent(self) -> RAPF_Agent_v4:
@@ -39,6 +40,7 @@ class RAPFAgentV4Adapter:
         else:
             goal = np.asarray(environment.goal, dtype=float)
 
+        self._total_obstacles = len(getattr(environment, "obstacles", []))
         self._agent = RAPF_Agent_v4(
             agent_id=self.agent_id,
             position=start,
@@ -82,7 +84,7 @@ class RAPFAgentV4Adapter:
     def diagnostics(self) -> Dict[str, Any]:
         agent = self.wrapped_agent
         sensed = len(getattr(agent, "perceived_obstacles", []))
-        total = len(getattr(agent, "perceived_obstacles", []))
+        total = self._total_obstacles
         return {
             "planning_calls": int(getattr(agent, "replan_count", 0)),
             "replans": int(getattr(agent, "replan_count", 0)),

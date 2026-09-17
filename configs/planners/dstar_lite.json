@@ -1,0 +1,7 @@
+{
+  "resolution": 0.3,
+  "agent_radius": 0.3,
+  "safety_margin": 0,
+  "connectivity": 8,
+  "forbid_corner_cutting": true
+}

@@ -1,0 +1,11 @@
+{
+  "attractive_gain": 1,
+  "repulsive_gain": 1,
+  "influence_distance": 1.5,
+  "step_size": 0.3,
+  "goal_tolerance": 0.5,
+  "agent_radius": 0.3,
+  "safety_margin": 0,
+  "max_iterations": 5000,
+  "minimum_force": 1e-9
+}

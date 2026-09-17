@@ -1,5 +1,13 @@
-"""Baseline planners implementing comparison.interfaces.Planner.
+"""Baseline planners implementing comparison.interfaces.Planner."""
 
-Planner implementations are added independently and registered through
-comparison.registry.register_planner().
-"""
+from .apf import APFPlanner
+from .astar import AStarPlanner
+from .dstar_lite import DStarLitePlanner
+from .rrt_star import RRTStarPlanner
+
+__all__ = [
+    "APFPlanner",
+    "AStarPlanner",
+    "DStarLitePlanner",
+    "RRTStarPlanner",
+]

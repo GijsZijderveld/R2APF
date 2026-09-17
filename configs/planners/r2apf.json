@@ -1,0 +1,10 @@
+{
+  "SENSE_RANGE": 3.0,
+  "SENSE_USE_FOV": false,
+  "SENSE_FOV_DEG": 62.0,
+  "SENSE_PAD": 0.05,
+  "REPLAN_CORRIDOR_MARGIN": 0.2,
+  "GOAL_TOLERANCE": 0.5,
+  "RHO_L": 0.3,
+  "RHO_U": 1.5
+}

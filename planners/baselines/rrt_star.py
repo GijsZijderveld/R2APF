@@ -24,7 +24,7 @@ class RRTStarPlanner:
         goal_tolerance: float = 0.50,
         agent_radius: float = 0.30,
         safety_margin: float = 0.0,
-        seed: int = 100000,
+        seed_offset: int = 100000,
     ) -> None:
         self.max_samples = int(max_samples)
         self.step_size = float(step_size)
@@ -33,7 +33,12 @@ class RRTStarPlanner:
         self.goal_tolerance = float(goal_tolerance)
         self.agent_radius = float(agent_radius)
         self.safety_margin = float(safety_margin)
-        self.seed = int(seed)
+        self.seed_offset = int(seed_offset)
+        self._active_seed = self.seed_offset
+
+    def reset(self, environment_seed: int) -> None:
+        """Select a deterministic stream paired with the environment seed."""
+        self._active_seed = int(environment_seed) + self.seed_offset
 
     def _free(self, a, b, obstacles) -> bool:
         return segment_is_collision_free(
@@ -45,7 +50,7 @@ class RRTStarPlanner:
         xmin, xmax, ymin, ymax = normalize_bounds(bounds)
         start = np.asarray(start, dtype=float)
         goal = np.asarray(goal, dtype=float)
-        rng = np.random.default_rng(self.seed)
+        rng = np.random.default_rng(self._active_seed)
         nodes = [start.copy()]
         parents = [-1]
         costs = [0.0]

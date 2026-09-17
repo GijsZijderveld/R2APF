@@ -43,3 +43,18 @@ def build_agent(
 
     planner = planner_factory(planner_config)
     return NavigationAgent(planner=planner, **agent_config)
+
+
+def _register_builtin_planners() -> None:
+    from planners.baselines.apf import APFPlanner
+    from planners.baselines.astar import AStarPlanner
+    from planners.baselines.dstar_lite import DStarLitePlanner
+    from planners.baselines.rrt_star import RRTStarPlanner
+
+    register_planner("apf", lambda config: APFPlanner(**config))
+    register_planner("astar", lambda config: AStarPlanner(**config))
+    register_planner("dstar_lite", lambda config: DStarLitePlanner(**config))
+    register_planner("rrt_star", lambda config: RRTStarPlanner(**config))
+
+
+_register_builtin_planners()

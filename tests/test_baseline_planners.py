@@ -3,6 +3,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from comparison.collision import path_is_collision_free
 from comparison.registry import available_planners
 from planners.baselines import (
     APFPlanner,
@@ -41,6 +42,7 @@ class BaselinePlannerTests(unittest.TestCase):
         result = AStarPlanner().plan(START, GOAL, [obstacle], BOUNDS)
         self.assertTrue(result.success, result.failure_reason)
         self.assertGreater(result.expanded_nodes, 0)
+        self.assertTrue(path_is_collision_free(result.path, [obstacle], 0.3))
 
     def test_dstar_lite_reuses_state_after_map_update(self):
         planner = DStarLitePlanner()
@@ -52,6 +54,18 @@ class BaselinePlannerTests(unittest.TestCase):
         self.assertTrue(second.success, second.failure_reason)
         self.assertTrue(second.diagnostics["state_reused"])
         self.assertGreater(second.diagnostics["changed_cells"], 0)
+        self.assertTrue(
+            path_is_collision_free(second.path, [Circle(3.0, 3.0, 0.8)], 0.3)
+        )
+
+    def test_grid_edges_reject_circle_intersections_between_free_centers(self):
+        obstacle = Circle(3.0, 3.0, 0.31)
+        start = np.array([1.5, 2.55])
+        goal = np.array([4.5, 3.45])
+        for planner in (AStarPlanner(), DStarLitePlanner()):
+            result = planner.plan(start, goal, [obstacle], BOUNDS)
+            self.assertTrue(result.success, result.failure_reason)
+            self.assertTrue(path_is_collision_free(result.path, [obstacle], 0.3))
 
     def test_rrt_star_is_deterministic_for_fixed_seed(self):
         planner = RRTStarPlanner(max_samples=1500, seed_offset=123)

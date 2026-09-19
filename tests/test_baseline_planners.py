@@ -54,9 +54,18 @@ class BaselinePlannerTests(unittest.TestCase):
         self.assertTrue(second.success, second.failure_reason)
         self.assertTrue(second.diagnostics["state_reused"])
         self.assertGreater(second.diagnostics["changed_cells"], 0)
+        self.assertGreater(second.diagnostics["changed_edges"], 0)
         self.assertTrue(
             path_is_collision_free(second.path, [Circle(3.0, 3.0, 0.8)], 0.3)
         )
+
+        third = planner.plan(
+            np.array([1.2, 1.2]), GOAL, [Circle(3.0, 3.0, 0.8)], BOUNDS
+        )
+        self.assertTrue(third.success, third.failure_reason)
+        self.assertTrue(third.diagnostics["state_reused"])
+        self.assertEqual(third.diagnostics["changed_cells"], 0)
+        self.assertEqual(third.diagnostics["changed_edges"], 0)
 
     def test_grid_edges_reject_circle_intersections_between_free_centers(self):
         obstacle = Circle(3.0, 3.0, 0.31)

@@ -15,7 +15,11 @@ All baseline planners implement the `Planner` protocol from
 
 A* and D* Lite share `grid.py`, so they use identical resolution,
 rasterization, obstacle inflation, connectivity, costs, and diagonal-corner
-rules. Shared sensing, path invalidation, movement, collision reporting,
+rules. Continuous edge validity is cached in the grid. D* Lite retains this
+grid and rasterizes only newly discovered obstacles, then repairs vertices at
+the endpoints of changed cells and edges. Its diagnostics separate
+`map_update_time_s` from `search_time_s`. Shared sensing, path invalidation,
+movement, collision reporting,
 stopping conditions, and metrics remain in `comparison/`.
 
 The common policy is `configs/comparison_policy.yaml`. Planner-specific

@@ -104,7 +104,14 @@ class DStarLitePlanner:
         while True:
             top_key, _ = self._top()
             start_key = self._key(start, start)
-            if not (top_key < start_key or self._value(self.rhs, start) != self._value(self.g, start)):
+            queue_can_affect_start = (
+                top_key != (float("inf"), float("inf"))
+                and top_key[0] <= start_key[0] + 1e-12
+            )
+            if not (
+                queue_can_affect_start
+                or self._value(self.rhs, start) != self._value(self.g, start)
+            ):
                 return
             if top_key == (float("inf"), float("inf")):
                 return
@@ -135,8 +142,13 @@ class DStarLitePlanner:
     def _update_grid(self, new_grid: GridMap, start: Cell) -> int:
         assert self.grid is not None
         changed = self.grid.occupied.symmetric_difference(new_grid.occupied)
+        changed_circles = set(self.grid.inflated_obstacles).symmetric_difference(
+            new_grid.inflated_obstacles
+        )
         self.grid = new_grid
         affected: set[Cell] = set(changed)
+        for circle in changed_circles:
+            affected.update(self.grid.cells_affected_by_circle(circle))
         for cell in changed:
             x, y = cell
             for dx in (-1, 0, 1):
@@ -208,6 +220,9 @@ class DStarLitePlanner:
             choices = [
                 (cost + self._value(self.g, neighbor), neighbor)
                 for neighbor, cost in self._successors(current)
+                if neighbor not in visited
+                and self._value(self.g, neighbor) < float("inf")
+                and self._value(self.g, neighbor) < self._value(self.g, current)
             ]
             if not choices:
                 return PlanningResult(
@@ -216,14 +231,10 @@ class DStarLitePlanner:
                     failure_reason="path_extraction_failed",
                     expanded_nodes=call_expanded,
                 )
-            _, current = min(choices, key=lambda item: (item[0], item[1]))
-            if current in visited:
-                return PlanningResult(
-                    False,
-                    planning_time_s=time.perf_counter() - started,
-                    failure_reason="path_extraction_loop",
-                    expanded_nodes=call_expanded,
-                )
+            _, current = min(
+                choices,
+                key=lambda item: (item[0], self._value(self.g, item[1]), item[1]),
+            )
             visited.add(current)
             cells.append(current)
 

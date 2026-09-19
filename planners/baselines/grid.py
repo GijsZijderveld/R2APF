@@ -20,6 +20,7 @@ class GridMap:
     occupied: frozenset[Cell]
     width: int
     height: int
+    inflated_obstacles: tuple[tuple[float, float, float], ...] = ()
     connectivity: int = 8
     forbid_corner_cutting: bool = True
 
@@ -41,10 +42,12 @@ class GridMap:
         width = int(math.ceil((xmax - xmin) / resolution))
         height = int(math.ceil((ymax - ymin) / resolution))
         occupied: set[Cell] = set()
+        inflated_obstacles: list[tuple[float, float, float]] = []
 
         for obstacle in obstacles:
             center = obstacle_center(obstacle)
             inflated = float(obstacle.radius) + agent_radius + safety_margin
+            inflated_obstacles.append((float(center[0]), float(center[1]), inflated))
             ix0 = max(0, int(math.floor((center[0] - inflated - xmin) / resolution)))
             ix1 = min(width - 1, int(math.floor((center[0] + inflated - xmin) / resolution)))
             iy0 = max(0, int(math.floor((center[1] - inflated - ymin) / resolution)))
@@ -63,6 +66,7 @@ class GridMap:
             occupied=frozenset(occupied),
             width=width,
             height=height,
+            inflated_obstacles=tuple(sorted(inflated_obstacles)),
             connectivity=int(connectivity),
             forbid_corner_cutting=bool(forbid_corner_cutting),
         )
@@ -109,8 +113,41 @@ class GridMap:
                     continue
                 if not self.is_free((cell[0], cell[1] + dy)):
                     continue
+            if not self.edge_is_collision_free(cell, neighbor):
+                continue
             cost = self.resolution * (math.sqrt(2.0) if dx and dy else 1.0)
             yield neighbor, cost
+
+    def edge_is_collision_free(self, start: Cell, end: Cell) -> bool:
+        """Check a cell-centre edge against the exact inflated circles."""
+        a = self.cell_to_world(start)
+        b = self.cell_to_world(end)
+        segment = b - a
+        denominator = float(np.dot(segment, segment))
+        for x, y, radius in self.inflated_obstacles:
+            center = np.array([x, y], dtype=float)
+            if denominator <= 1e-12:
+                distance = float(np.linalg.norm(center - a))
+            else:
+                fraction = float(np.dot(center - a, segment) / denominator)
+                fraction = max(0.0, min(1.0, fraction))
+                distance = float(np.linalg.norm(center - (a + fraction * segment)))
+            if distance < radius:
+                return False
+        return True
+
+    def cells_affected_by_circle(
+        self, circle: tuple[float, float, float], padding_cells: int = 2
+    ) -> set[Cell]:
+        """Return vertices whose incident edges may intersect a circle."""
+        x, y, radius = circle
+        xmin, _, ymin, _ = self.bounds
+        padding = padding_cells * self.resolution
+        ix0 = max(0, int(math.floor((x - radius - padding - xmin) / self.resolution)))
+        ix1 = min(self.width - 1, int(math.floor((x + radius + padding - xmin) / self.resolution)))
+        iy0 = max(0, int(math.floor((y - radius - padding - ymin) / self.resolution)))
+        iy1 = min(self.height - 1, int(math.floor((y + radius + padding - ymin) / self.resolution)))
+        return {(ix, iy) for ix in range(ix0, ix1 + 1) for iy in range(iy0, iy1 + 1)}
 
 
 def normalize_bounds(bounds: Any) -> tuple[float, float, float, float]:
@@ -139,6 +176,7 @@ def cells_to_path(
     if not cells:
         return []
     path = [np.asarray(start, dtype=float).copy()]
-    path.extend(grid.cell_to_world(cell) for cell in cells[1:-1])
+    path.extend(grid.cell_to_world(cell) for cell in cells)
     path.append(np.asarray(goal, dtype=float).copy())
+    path = [point for index, point in enumerate(path) if index == 0 or np.linalg.norm(point - path[index - 1]) > 1e-12]
     return path

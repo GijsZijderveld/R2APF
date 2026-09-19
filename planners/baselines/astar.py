@@ -38,6 +38,7 @@ class AStarPlanner:
         bounds: Any = None,
     ) -> PlanningResult:
         started = time.perf_counter()
+        map_started = time.perf_counter()
         grid = GridMap.from_obstacles(
             known_obstacles,
             bounds,
@@ -47,6 +48,7 @@ class AStarPlanner:
             connectivity=self.connectivity,
             forbid_corner_cutting=self.forbid_corner_cutting,
         )
+        map_update_time = time.perf_counter() - map_started
         start_cell, goal_cell = grid.world_to_cell(start), grid.world_to_cell(goal)
         if not grid.is_free(start_cell) or not grid.is_free(goal_cell):
             return PlanningResult(
@@ -60,6 +62,7 @@ class AStarPlanner:
         came_from = {}
         closed = set()
         collision_checks = 0
+        search_started = time.perf_counter()
 
         while queue:
             _, _, current = heapq.heappop(queue)
@@ -78,6 +81,11 @@ class AStarPlanner:
                     planning_time_s=time.perf_counter() - started,
                     collision_checks=collision_checks,
                     expanded_nodes=len(closed),
+                    diagnostics={
+                        "map_update_time_s": map_update_time,
+                        "search_time_s": time.perf_counter() - search_started,
+                        "blocked_edges": len(grid.blocked_edges),
+                    },
                 )
 
             for neighbor, edge_cost in grid.neighbors(current):
@@ -96,4 +104,9 @@ class AStarPlanner:
             failure_reason="no_path",
             collision_checks=collision_checks,
             expanded_nodes=len(closed),
+            diagnostics={
+                "map_update_time_s": map_update_time,
+                "search_time_s": time.perf_counter() - search_started,
+                "blocked_edges": len(grid.blocked_edges),
+            },
         )

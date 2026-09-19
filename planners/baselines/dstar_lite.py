@@ -139,16 +139,16 @@ class DStarLitePlanner:
         self.rhs[goal] = 0.0
         self._push(goal, start)
 
-    def _update_grid(self, new_grid: GridMap, start: Cell) -> int:
+    def _update_grid(self, new_grid: GridMap, start: Cell) -> tuple[int, int]:
         assert self.grid is not None
         changed = self.grid.occupied.symmetric_difference(new_grid.occupied)
-        changed_circles = set(self.grid.inflated_obstacles).symmetric_difference(
-            new_grid.inflated_obstacles
+        changed_edges = self.grid.blocked_edges.symmetric_difference(
+            new_grid.blocked_edges
         )
         self.grid = new_grid
         affected: set[Cell] = set(changed)
-        for circle in changed_circles:
-            affected.update(self.grid.cells_affected_by_circle(circle))
+        for edge in changed_edges:
+            affected.update(edge)
         for cell in changed:
             x, y = cell
             for dx in (-1, 0, 1):
@@ -158,20 +158,37 @@ class DStarLitePlanner:
                         affected.add(candidate)
         for cell in affected:
             self._update_vertex(cell, start)
-        return len(changed)
+        return len(changed), len(changed_edges)
 
     def plan(self, start, goal, known_obstacles: Sequence[Any], bounds=None) -> PlanningResult:
         started = time.perf_counter()
         normalized_bounds = normalize_bounds(bounds)
-        grid = GridMap.from_obstacles(
-            known_obstacles,
-            normalized_bounds,
-            resolution=self.resolution,
-            agent_radius=self.agent_radius,
-            safety_margin=self.safety_margin,
-            connectivity=self.connectivity,
-            forbid_corner_cutting=self.forbid_corner_cutting,
+        map_started = time.perf_counter()
+        metadata_compatible = (
+            self.grid is not None
+            and self.grid.bounds == normalized_bounds
+            and self.grid.resolution == self.resolution
+            and self.grid.connectivity == self.connectivity
+            and self.grid.forbid_corner_cutting == self.forbid_corner_cutting
         )
+        if metadata_compatible:
+            assert self.grid is not None
+            grid = self.grid.with_added_obstacles(
+                known_obstacles,
+                agent_radius=self.agent_radius,
+                safety_margin=self.safety_margin,
+            )
+        else:
+            grid = GridMap.from_obstacles(
+                known_obstacles,
+                normalized_bounds,
+                resolution=self.resolution,
+                agent_radius=self.agent_radius,
+                safety_margin=self.safety_margin,
+                connectivity=self.connectivity,
+                forbid_corner_cutting=self.forbid_corner_cutting,
+            )
+        map_update_time = time.perf_counter() - map_started
         start_cell, goal_cell = grid.world_to_cell(start), grid.world_to_cell(goal)
         if not grid.is_free(start_cell) or not grid.is_free(goal_cell):
             return PlanningResult(
@@ -180,26 +197,25 @@ class DStarLitePlanner:
             )
 
         compatible = (
-            self.grid is not None
+            metadata_compatible
             and self.goal == goal_cell
-            and self.grid.bounds == grid.bounds
-            and self.grid.resolution == grid.resolution
-            and self.grid.width == grid.width
-            and self.grid.height == grid.height
         )
         changed_cells = 0
+        changed_edges = 0
+        search_started = time.perf_counter()
         if not compatible:
             self._initialize(grid, start_cell, goal_cell)
         else:
             assert self.last_start is not None
             self.km += self._heuristic(self.last_start, start_cell)
-            changed_cells = self._update_grid(grid, start_cell)
+            changed_cells, changed_edges = self._update_grid(grid, start_cell)
             self.last_start = start_cell
 
         expanded_before, updated_before = self.expanded, self.updated
         self._compute_shortest_path(start_cell)
         call_expanded = self.expanded - expanded_before
         call_updated = self.updated - updated_before
+        search_time = time.perf_counter() - search_started
 
         if self._value(self.g, start_cell) == float("inf"):
             return PlanningResult(
@@ -210,6 +226,9 @@ class DStarLitePlanner:
                 diagnostics={
                     "updated_vertices": call_updated,
                     "changed_cells": changed_cells,
+                    "changed_edges": changed_edges,
+                    "map_update_time_s": map_update_time,
+                    "search_time_s": search_time,
                 },
             )
 
@@ -246,6 +265,9 @@ class DStarLitePlanner:
             diagnostics={
                 "updated_vertices": call_updated,
                 "changed_cells": changed_cells,
+                "changed_edges": changed_edges,
+                "map_update_time_s": map_update_time,
+                "search_time_s": search_time,
                 "state_reused": compatible,
             },
         )

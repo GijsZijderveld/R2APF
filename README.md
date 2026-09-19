@@ -53,6 +53,34 @@ python -m demos.replay_RAPF_v4 --scenario B --seed 42 --steps 1000 --speed 1
 
 The demonstration generates a lunar-style obstacle environment, simulates one agent with incrementally perceived obstacles, and displays the executed and currently planned paths.
 
+## Visualize any comparison planner
+
+The common visualizer animates sensing, planning, movement, path invalidation,
+and replanning for R2APF and all baseline planners:
+
+```bash
+python scripts/visualize_planner.py --planner astar --scenario A --seed 5000
+```
+
+Valid planner names are `r2apf`, `apf`, `astar`, `dstar_lite`, and `rrt_star`.
+Unknown obstacles are drawn faintly until sensed, the orange line is the
+remaining plan, the blue line is the executed trajectory, and purple crosses
+mark planning and replanning locations.
+
+To slow the animation down or save it as a GIF:
+
+```bash
+python scripts/visualize_planner.py \
+  --planner dstar_lite \
+  --scenario B \
+  --seed 5000 \
+  --interval-ms 100 \
+  --save experiments/comparisons/dstar_lite_seed5000.gif
+```
+
+Planner parameters default to the matching file in `configs/planners/`. Use
+`--planner-config` to select a different configuration explicitly.
+
 ## Experiments
 
 Install the additional dependencies with:
@@ -67,7 +95,11 @@ A modular planner-comparison framework is documented in [`comparison/README.md`]
 
 ## Repository status
 
-This is the initial, behavior-preserving extraction. It is intended to establish a clear reference point before adding benchmark planners and publication experiments. The code has deliberately not been refactored or corrected during extraction. See [`TODO.md`](TODO.md) for known inconsistencies and reproducibility work that remains.
+The historical R2APF implementation remains behavior-preserving. Classical
+APF, A*, D* Lite, and RRT* have been added behind a separate common comparison
+interface. They still require sensitivity studies and frozen computation
+budgets before publication experiments. See [`TODO.md`](TODO.md) for known
+inconsistencies and reproducibility work that remains.
 
 ## Academic context
 

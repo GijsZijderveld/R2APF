@@ -12,7 +12,7 @@ from comparison.interfaces import PlanningResult
 from .grid import Cell, GridMap, cells_to_path, normalize_bounds, octile_distance
 
 INF = math.inf
-INF_KEY = INF_KEY
+INF_KEY = (INF, INF)
 
 
 class DStarLitePlanner:

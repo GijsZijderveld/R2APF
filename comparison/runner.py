@@ -221,8 +221,10 @@ def write_results(
     fieldnames = sorted({key for row in rows for key in row})
     path = Path(output_path)
     path.parent.mkdir(parents=True, exist_ok=True)
+    temporary_path = path.with_name(f".{path.name}.tmp")
 
-    with path.open("w", newline="", encoding="utf-8") as handle:
+    with temporary_path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(rows)
+    temporary_path.replace(path)

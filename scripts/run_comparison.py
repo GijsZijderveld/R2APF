@@ -78,6 +78,9 @@ def main() -> None:
         max_steps=int(campaign["max_steps"]),
         agent_radius=float(campaign["agent_radius"]),
         stop_on_collision=bool(campaign["stop_on_collision"]),
+        max_consecutive_plan_failures=int(
+            campaign.get("max_consecutive_plan_failures", 0)
+        ),
         max_consecutive_stationary_plan_failures=int(
             campaign.get("max_consecutive_stationary_plan_failures", 0)
         ),

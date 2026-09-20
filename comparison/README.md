@@ -34,6 +34,13 @@ The shared navigation behavior is regression-tested against the preserved
 historical runs. The final campaign is therefore a planner comparison: all
 methods use the same agent-level behavior and differ only in planning logic.
 
+Run the full controlled campaign with `python scripts/run_comparison.py
+--planner all`. Execution is interleaved by scenario/seed case: every planner
+finishes the same case before the campaign advances to the next seed. A complete
+case is then checkpointed with an atomic CSV replacement, so an interruption
+cannot leave results containing thousands of episodes for one planner and none
+for the others.
+
 ## Add a baseline
 
 1. Read and follow `configs/comparison_policy.yaml`.

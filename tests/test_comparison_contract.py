@@ -42,6 +42,50 @@ class RepeatedFailurePlanner:
         return PlanningResult(success=False, failure_reason="local_minimum")
 
 
+class FailureRecoveryAgent:
+    """Alternates failed plans with movement-only recovery steps."""
+
+    def reset(self, environment, seed):
+        del seed
+        self._position = environment.starts[0].copy()
+        self._goal = environment.goal.copy()
+        self._planning_calls = 0
+        self._plan_failures = 0
+        self._backtrack_tries = 0
+
+    @property
+    def position(self):
+        return self._position
+
+    @property
+    def goal(self):
+        return self._goal
+
+    @property
+    def reached_goal(self):
+        return False
+
+    def step(self, observation, dt, speed_limit):
+        del dt, speed_limit
+        if observation.time_step % 2 == 0:
+            self._planning_calls += 1
+            self._plan_failures += 1
+            self._backtrack_tries += 1
+        else:
+            self._position = self._position + np.array([0.1, 0.0])
+
+    def diagnostics(self):
+        return {
+            "planning_calls": self._planning_calls,
+            "plan_failures": self._plan_failures,
+            "backtrack_tries": self._backtrack_tries,
+            "planning_time_total_s": 0.0,
+            "planning_time_max_s": 0.0,
+            "known_obstacles": 0,
+            "total_obstacles": 0,
+        }
+
+
 class ComparisonContractTests(unittest.TestCase):
     def test_repeated_stationary_planning_failures_stop_episode(self):
         environment = EmptyEnvironment()
@@ -53,6 +97,7 @@ class ComparisonContractTests(unittest.TestCase):
             seed=42,
             config=BenchmarkConfig(
                 max_steps=100,
+                max_consecutive_plan_failures=0,
                 max_consecutive_stationary_plan_failures=3,
             ),
         )
@@ -62,6 +107,27 @@ class ComparisonContractTests(unittest.TestCase):
             "repeated_stationary_planning_failure",
         )
         self.assertEqual(metrics.execution_steps, 3)
+
+    def test_recovery_movement_does_not_reset_consecutive_plan_failures(self):
+        metrics = run_episode(
+            FailureRecoveryAgent(),
+            EmptyEnvironment(),
+            planner_name="failure_recovery",
+            scenario="test",
+            seed=42,
+            config=BenchmarkConfig(
+                max_steps=100,
+                max_consecutive_plan_failures=3,
+                max_consecutive_stationary_plan_failures=0,
+            ),
+        )
+        self.assertFalse(metrics.success)
+        self.assertEqual(
+            metrics.failure_reason,
+            "consecutive_planning_failures",
+        )
+        self.assertEqual(metrics.planning_calls, 3)
+        self.assertEqual(metrics.execution_steps, 5)
 
     def test_generic_agent_accepts_interchangeable_planner(self):
         environment = EmptyEnvironment()

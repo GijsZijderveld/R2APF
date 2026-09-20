@@ -10,6 +10,7 @@ from comparison.runner import BenchmarkConfig, run_episode
 from planners.rapf_global_planner import RAPFGlobalPlanner as R2APFPlanner
 from planners.rapf_paper_planner import RAPFGlobalPlanner as RAPFPaperPlanner
 from simulation.env.runtime import CircularObstacle
+from scripts.run_comparison import interleaved_jobs
 
 
 class EmptyEnvironment:
@@ -88,6 +89,26 @@ class FailureRecoveryAgent:
 
 
 class ComparisonContractTests(unittest.TestCase):
+    def test_campaign_interleaves_planners_per_episode_case(self):
+        jobs = list(
+            interleaved_jobs(
+                ("apf", "astar", "r2apf"),
+                ("A",),
+                (5000, 5001),
+            )
+        )
+        self.assertEqual(
+            jobs,
+            [
+                ("apf", "A", 5000),
+                ("astar", "A", 5000),
+                ("r2apf", "A", 5000),
+                ("apf", "A", 5001),
+                ("astar", "A", 5001),
+                ("r2apf", "A", 5001),
+            ],
+        )
+
     def test_r2apf_records_midpoint_only_rejections(self):
         planner = R2APFPlanner()
         obstacle = CircularObstacle(

@@ -29,6 +29,7 @@ class StraightLinePlanner:
         return PlanningResult(
             success=True,
             path=[start.copy(), goal.copy()],
+            planning_time_s=123.0,
         )
 
 
@@ -55,7 +56,9 @@ class ComparisonContractTests(unittest.TestCase):
                 break
 
         self.assertTrue(agent.reached_goal)
-        self.assertGreaterEqual(agent.diagnostics()["planning_calls"], 1)
+        diagnostics = agent.diagnostics()
+        self.assertGreaterEqual(diagnostics["planning_calls"], 1)
+        self.assertLess(diagnostics["planning_time_total_s"], 1.0)
 
     def test_all_planners_use_the_same_navigation_agent(self):
         environment = EmptyEnvironment()

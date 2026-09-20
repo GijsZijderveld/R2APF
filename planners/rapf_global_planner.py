@@ -29,9 +29,9 @@ class RAPFGlobalPlanner:
         self.total_virtual_obstacles_created = 0
         self.total_plan_calls = 0
         self.total_plan_failures = 0
-        angles = 2.0 * np.pi * np.arange(int(self.p['N_B'])) / int(self.p['N_B'])
-        self._bacteria_cos = np.cos(angles)
-        self._bacteria_sin = np.sin(angles)
+        self._bacteria_angles = (
+            2.0 * np.pi * np.arange(int(self.p['N_B'])) / int(self.p['N_B'])
+        )
 
     def plan(self, start_pos, goal_pos, real_obstacles, *, virtual_obstacles=None) -> dict:
         """
@@ -193,16 +193,12 @@ class RAPFGlobalPlanner:
     def _generate_bacteria_points(self, center_pos, goal_pos):
         vector_to_goal = goal_pos - center_pos
         base_angle = np.arctan2(vector_to_goal[1], vector_to_goal[0])
-        cos_base = np.cos(base_angle)
-        sin_base = np.sin(base_angle)
-        x_offsets = self.p['RHO_B'] * (
-            cos_base * self._bacteria_cos - sin_base * self._bacteria_sin
-        )
-        y_offsets = self.p['RHO_B'] * (
-            sin_base * self._bacteria_cos + cos_base * self._bacteria_sin
-        )
+        angles = base_angle + self._bacteria_angles
         return np.column_stack(
-            (center_pos[0] + x_offsets, center_pos[1] + y_offsets)
+            (
+                center_pos[0] + self.p['RHO_B'] * np.cos(angles),
+                center_pos[1] + self.p['RHO_B'] * np.sin(angles),
+            )
         )
     def _compute_total_potential(self, pos, target, obstacles):
         target_delta = pos - target

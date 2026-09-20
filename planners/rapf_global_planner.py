@@ -29,6 +29,9 @@ class RAPFGlobalPlanner:
         self.total_virtual_obstacles_created = 0
         self.total_plan_calls = 0
         self.total_plan_failures = 0
+        angles = 2.0 * np.pi * np.arange(int(self.p['N_B'])) / int(self.p['N_B'])
+        self._bacteria_cos = np.cos(angles)
+        self._bacteria_sin = np.sin(angles)
 
     def plan(self, start_pos, goal_pos, real_obstacles, *, virtual_obstacles=None) -> dict:
         """
@@ -67,18 +70,18 @@ class RAPFGlobalPlanner:
         while not path_found and restart_count < self.p['MAX_RESTARTS']:
             restart_count += 1
             sim_q = sim_path[-1].copy()
-            current_obstacles = real_obstacles + active_vos
+            current_obstacles = self._prepare_obstacles(real_obstacles + active_vos)
             inner_success = False
             break_reason = "max_steps"
             
             # Remaining steps in the global budget
-            remaining_steps = self.p['MAX_PLANNING_STEPS'] - len(sim_path)
+            remaining_steps = self.p['MAX_PLANNING_STEPS'] - total_internal_steps
             if remaining_steps <= 0:
                 break_reason = "max_steps"
                 print(f"[Planner] WARNING: MAX_PLANNING_STEPS reached at start of iteration (remaining_steps={remaining_steps}). Consider increasing MAX_PLANNING_STEPS or check for logical errors.")
                 break
 
-            for _ in range(max(remaining_steps, 100)):
+            for _ in range(remaining_steps):
                 total_internal_steps += 1
 
                 # Goal Check
@@ -147,6 +150,18 @@ class RAPFGlobalPlanner:
          }
 
 
+    @staticmethod
+    def _prepare_obstacles(obstacles):
+        """Extract immutable circle geometry once per planning restart."""
+        prepared = []
+        for obstacle in obstacles:
+            if hasattr(obstacle, "x") and hasattr(obstacle, "y"):
+                center = np.array([obstacle.x, obstacle.y], dtype=float)
+            else:
+                center = np.asarray(obstacle.center, dtype=float)
+            prepared.append((center, float(obstacle.radius)))
+        return prepared
+
     def _compute_internal_step(self, pos, goal, obstacles):
         j_robot = self._compute_total_potential(pos, goal, obstacles)
         bacteria_points = self._generate_bacteria_points(pos, goal)
@@ -176,54 +191,36 @@ class RAPFGlobalPlanner:
         return best_point, is_stuck
 
     def _generate_bacteria_points(self, center_pos, goal_pos):
-        points = []
-        n_b = self.p['N_B']
-        rho_b = self.p['RHO_B']
-        
-        # Alignment: Ensure one bacterium always points directly at the goal [cite: 457]
         vector_to_goal = goal_pos - center_pos
         base_angle = np.arctan2(vector_to_goal[1], vector_to_goal[0])
-        
-        for i in range(n_b):
-            angle = base_angle + (2 * np.pi * i / n_b)
-            b_x = center_pos[0] + rho_b * np.cos(angle)
-            b_y = center_pos[1] + rho_b * np.sin(angle)
-            points.append(np.array([b_x, b_y]))
-            
-        return points
-
+        cos_base = np.cos(base_angle)
+        sin_base = np.sin(base_angle)
+        x_offsets = self.p['RHO_B'] * (
+            cos_base * self._bacteria_cos - sin_base * self._bacteria_sin
+        )
+        y_offsets = self.p['RHO_B'] * (
+            sin_base * self._bacteria_cos + cos_base * self._bacteria_sin
+        )
+        return np.column_stack(
+            (center_pos[0] + x_offsets, center_pos[1] + y_offsets)
+        )
     def _compute_total_potential(self, pos, target, obstacles):
-        # Gaussian Attractive Potential [cite: 397]
-        d_t_sq = np.linalg.norm(pos - target)**2
+        target_delta = pos - target
+        d_t_sq = float(np.dot(target_delta, target_delta))
         j_a = -self.p['ALPHA_A'] * np.exp(-self.p['MU_A'] * d_t_sq)
 
-        # Gaussian Repulsive Potential [cite: 402]
-        j_r = 0
-        for o in obstacles:
-            if hasattr(o, 'distance_to_surface'):
-                dist_surface = o.distance_to_surface(pos)
-            else:
-                o_pos = np.array([o.x, o.y]) if hasattr(o, 'x') else o.center
-                dist_surface = np.linalg.norm(pos - o_pos) - o.radius
-
+        j_r = 0.0
+        for center, radius in obstacles:
+            dist_surface = float(np.linalg.norm(pos - center)) - radius
             if dist_surface < self.p['RHO_L']:
-                # Infinite potential for hard collisions
                 j_r += 1e6 * (1.0 / max(dist_surface, 1e-6))
             elif dist_surface < self.p['RHO_U']:
                 d_calc = max(0.0, dist_surface)
                 j_r += self.p['ALPHA_O'] * np.exp(-self.p['MU_O'] * (d_calc**2))
-            
         return j_a + j_r
-
     def _is_collision(self, check_pos, obstacles):
         safety_radius = self.p['RHO_L']
-        for o in obstacles:
-            if hasattr(o, 'distance_to_surface'):
-                dist_surface = o.distance_to_surface(check_pos)
-            else:
-                o_pos = np.array([o.x, o.y]) if hasattr(o, 'x') else o.center
-                dist_surface = np.linalg.norm(check_pos - o_pos) - o.radius
-
-            if dist_surface < safety_radius:
+        for center, radius in obstacles:
+            if float(np.linalg.norm(check_pos - center)) - radius < safety_radius:
                 return True
         return False

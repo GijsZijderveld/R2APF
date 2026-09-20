@@ -6,6 +6,7 @@ from comparison.agents import NavigationAgent
 from comparison.interfaces import BenchmarkObservation, PlanningResult
 from comparison.registry import available_planners, build_agent
 from comparison.rapf_adapter import RAPFPlannerAdapter
+from comparison.runner import BenchmarkConfig, run_episode
 from planners.rapf_global_planner import RAPFGlobalPlanner as R2APFPlanner
 from planners.rapf_paper_planner import RAPFGlobalPlanner as RAPFPaperPlanner
 
@@ -33,7 +34,35 @@ class StraightLinePlanner:
         )
 
 
+class RepeatedFailurePlanner:
+    name = "repeated_failure"
+
+    def plan(self, start, goal, known_obstacles, bounds=None):
+        del start, goal, known_obstacles, bounds
+        return PlanningResult(success=False, failure_reason="local_minimum")
+
+
 class ComparisonContractTests(unittest.TestCase):
+    def test_repeated_stationary_planning_failures_stop_episode(self):
+        environment = EmptyEnvironment()
+        metrics = run_episode(
+            NavigationAgent(planner=RepeatedFailurePlanner()),
+            environment,
+            planner_name="repeated_failure",
+            scenario="test",
+            seed=42,
+            config=BenchmarkConfig(
+                max_steps=100,
+                max_consecutive_stationary_plan_failures=3,
+            ),
+        )
+        self.assertFalse(metrics.success)
+        self.assertEqual(
+            metrics.failure_reason,
+            "repeated_stationary_planning_failure",
+        )
+        self.assertEqual(metrics.execution_steps, 3)
+
     def test_generic_agent_accepts_interchangeable_planner(self):
         environment = EmptyEnvironment()
         agent = NavigationAgent(

@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import heapq
 import itertools
+import math
 import time
 from typing import Any, Sequence
 
 import numpy as np
 
 from comparison.interfaces import PlanningResult
-from .grid import GridMap, cells_to_path, octile_distance
+from .grid import GridMap, cells_to_path, normalize_bounds, octile_distance
 
 
 class AStarPlanner:
@@ -29,6 +30,11 @@ class AStarPlanner:
         self.safety_margin = float(safety_margin)
         self.connectivity = int(connectivity)
         self.forbid_corner_cutting = bool(forbid_corner_cutting)
+        self.grid: GridMap | None = None
+
+    def reset(self, environment_seed: int) -> None:
+        del environment_seed
+        self.grid = None
 
     def plan(
         self,
@@ -38,16 +44,32 @@ class AStarPlanner:
         bounds: Any = None,
     ) -> PlanningResult:
         started = time.perf_counter()
+        normalized_bounds = normalize_bounds(bounds)
         map_started = time.perf_counter()
-        grid = GridMap.from_obstacles(
-            known_obstacles,
-            bounds,
-            resolution=self.resolution,
-            agent_radius=self.agent_radius,
-            safety_margin=self.safety_margin,
-            connectivity=self.connectivity,
-            forbid_corner_cutting=self.forbid_corner_cutting,
+        compatible = (
+            self.grid is not None
+            and self.grid.bounds == normalized_bounds
+            and self.grid.resolution == self.resolution
+            and self.grid.connectivity == self.connectivity
+            and self.grid.forbid_corner_cutting == self.forbid_corner_cutting
         )
+        if compatible:
+            grid = self.grid.with_added_obstacles(
+                known_obstacles,
+                agent_radius=self.agent_radius,
+                safety_margin=self.safety_margin,
+            )
+        else:
+            grid = GridMap.from_obstacles(
+                known_obstacles,
+                normalized_bounds,
+                resolution=self.resolution,
+                agent_radius=self.agent_radius,
+                safety_margin=self.safety_margin,
+                connectivity=self.connectivity,
+                forbid_corner_cutting=self.forbid_corner_cutting,
+            )
+        self.grid = grid
         map_update_time = time.perf_counter() - map_started
         start_cell, goal_cell = grid.world_to_cell(start), grid.world_to_cell(goal)
         if not grid.is_free(start_cell) or not grid.is_free(goal_cell):
@@ -91,7 +113,7 @@ class AStarPlanner:
             for neighbor, edge_cost in grid.neighbors(current):
                 collision_checks += 1
                 tentative = g_score[current] + edge_cost
-                if tentative >= g_score.get(neighbor, float("inf")):
+                if tentative >= g_score.get(neighbor, math.inf):
                     continue
                 came_from[neighbor] = current
                 g_score[neighbor] = tentative

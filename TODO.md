@@ -10,7 +10,7 @@ This file records issues found while extracting the R2APF code from `swarm_apf_s
 - [ ] Add deterministic reference outputs for selected seeds and scenarios.
 - [ ] Confirm that all scenarios supported by `make_config` work with the extracted demonstration.
 - [ ] Decide whether the paper experiments require additional source files beyond the current single-agent execution path.
-- [ ] Establish and document how the Optuna-tuned RAPF v3 parameters map to `RAPF_V4_PARAMS` and `RAPFGlobalPlanner`.
+- [ ] Establish and document how the Optuna-tuned RAPF parameters map to `NAVIGATION_PARAMS` and `RAPFGlobalPlanner`.
 - [ ] Identify the exact command, commit, and parameter set that generated each preserved sensing benchmark table.
 - [ ] Replace the broken root `main.py` from the old repository only after defining the intended public command-line interface. It was not copied because it references modules that are no longer present.
 
@@ -24,8 +24,8 @@ This file records issues found while extracting the R2APF code from `swarm_apf_s
 
 ## Naming and structure
 
-- [ ] Decide whether the public method name should consistently be `R2APF`, `RAPF v4`, or another paper-defined name.
-- [ ] Rename versioned modules and classes only in a separate, behavior-checked refactor.
+- [x] Use `RAPF` and `R2APF` only as planner names and keep the shared agent unversioned.
+- [x] Rename the versioned agent behind deterministic regression checks.
 - [ ] Clarify the relationship between `rapf_global_planner.py` and `rapf_paper_planner.py`.
 - [ ] Add a proper Python package configuration after the stable public API is decided.
 - [ ] Remove unused imports and dead/commented code only after tests protect current behavior.
@@ -40,7 +40,7 @@ This file records issues found while extracting the R2APF code from `swarm_apf_s
 - [ ] Add the original RAPF configuration as a separate contribution/ablation baseline.
 - [ ] Validate and tune every new baseline through sensitivity studies before publication experiments.
 - [ ] Decide how many consecutive identical planning failures terminate an episode; classical APF can otherwise repeat the same local-minimum failure until `max_steps`.
-- [ ] Add non-invasive planner-only timing for the unchanged RAPF v4 agent; the adapter currently reports no RAPF planning time.
+- [x] Add planner-only timing through the shared navigation bridge.
 - [ ] Use wall-clock time and collision checks for comparisons across planner families; do not compare unlike iteration definitions directly.
 - [ ] Define common sensing, execution, collision checking, stopping criteria, random seeds, and computation budgets.
 - [ ] Report success rate, executed path length, planning time, replans, collision/failure rate, and distance travelled before failure.

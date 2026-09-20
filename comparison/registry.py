@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from typing import Any, Callable, Dict
 
-from comparison.agents import NavigationAgent, RAPFAgentV4Adapter
+from comparison.agents import NavigationAgent
 from comparison.interfaces import Planner
+from comparison.rapf_adapter import RAPFPlannerAdapter
 
 PlannerFactory = Callable[[Dict[str, Any]], Planner]
 
@@ -14,13 +15,13 @@ def register_planner(name: str, factory: PlannerFactory) -> None:
     key = name.strip().lower()
     if not key:
         raise ValueError("Planner name cannot be empty.")
-    if key == "r2apf":
-        raise ValueError("'r2apf' is reserved for the unchanged RAPF v4 adapter.")
+    if key in {"rapf", "r2apf"}:
+        raise ValueError(f"'{key}' is reserved for a RAPF v4 adapter.")
     _PLANNER_FACTORIES[key] = factory
 
 
 def available_planners() -> tuple[str, ...]:
-    return ("r2apf", *sorted(_PLANNER_FACTORIES))
+    return ("rapf", "r2apf", *sorted(_PLANNER_FACTORIES))
 
 
 def build_agent(
@@ -32,8 +33,11 @@ def build_agent(
     agent_config = dict(agent_config or {})
     key = name.strip().lower()
 
-    if key == "r2apf":
-        return RAPFAgentV4Adapter(**agent_config)
+    if key in {"rapf", "r2apf"}:
+        return NavigationAgent(
+            planner=RAPFPlannerAdapter(key, **planner_config),
+            **agent_config,
+        )
 
     try:
         planner_factory = _PLANNER_FACTORIES[key]

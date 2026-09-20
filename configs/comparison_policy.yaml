@@ -27,13 +27,13 @@ historical_r2apf:
     planner_clearance_radius:
       value: 0.30
       status: inherited
-      source: agents/RAPF_Agent_v4.py:RHO_L
+      source: agents/navigation_core.py:RHO_L
       purpose: RAPF potential-field collision avoidance and path-corridor validation
 
     movement_gate_radius:
       value: 0.10
       status: inherited
-      source: agents/RAPF_Agent_v4.py:_move_towards
+      source: agents/navigation_core.py:_move_towards
       purpose: Prevent movement segments from clipping sensed obstacles
 
     sensing_benchmark_collision_clearance:
@@ -62,7 +62,7 @@ historical_r2apf:
     agent_goal_tolerance:
       value: 0.50
       status: inherited
-      source: agents/RAPF_Agent_v4.py:GOAL_TOLERANCE
+      source: agents/navigation_core.py:GOAL_TOLERANCE
       purpose: RAPF v4 sets done when goal distance is below this value
 
     global_planner_default_tolerance:
@@ -70,7 +70,7 @@ historical_r2apf:
       status: inherited
       source: planners/rapf_global_planner.py:GOAL_TOLERANCE
       effective_in_v4: false
-      note: RAPF_Agent_v4 passes its 0.50 value into RAPFGlobalPlanner
+      note: NavigationAgent passes its 0.50 value into the selected planner
 
     generic_simulator_goal_radius:
       value: 1.00
@@ -148,7 +148,7 @@ historical_r2apf:
     planner_only_time:
       value: null
       status: open
-      note: The unchanged RAPF v4 agent does not currently expose planner-only time
+      note: NavigationAgent now measures planner-only wall-clock time through the common bridge
 
 controlled_comparison:
   description: >

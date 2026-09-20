@@ -43,10 +43,9 @@ def make_environment(scenario: str, seed: int):
 
 def current_path(agent: Any) -> list[np.ndarray]:
     """Return only the unexecuted part of either supported agent type."""
-    if hasattr(agent, "wrapped_agent"):
-        wrapped = agent.wrapped_agent
-        path = getattr(wrapped, "planned_path", []) or []
-        index = int(getattr(wrapped, "path_index", 0))
+    if hasattr(agent, "planned_path"):
+        path = getattr(agent, "planned_path", []) or []
+        index = int(getattr(agent, "path_index", 0))
     else:
         path = getattr(agent, "_path", []) or []
         index = int(getattr(agent, "_path_index", 0))
@@ -54,15 +53,15 @@ def current_path(agent: Any) -> list[np.ndarray]:
 
 
 def known_obstacles(agent: Any) -> list[Any]:
-    if hasattr(agent, "wrapped_agent"):
-        return list(getattr(agent.wrapped_agent, "perceived_obstacles", []))
+    if hasattr(agent, "perceived_obstacles"):
+        return list(getattr(agent, "perceived_obstacles", []))
     return list(getattr(agent, "_known_obstacles", []))
 
 
 def virtual_obstacles(agent: Any) -> list[tuple[np.ndarray, float]]:
-    if not hasattr(agent, "wrapped_agent"):
+    if not hasattr(agent, "last_virtual_obstacles"):
         return []
-    raw = getattr(agent.wrapped_agent, "last_virtual_obstacles", []) or []
+    raw = getattr(agent, "last_virtual_obstacles", []) or []
     normalized = []
     for obstacle in raw:
         if isinstance(obstacle, dict):
@@ -84,7 +83,7 @@ def planner_agent_config(campaign: dict[str, Any], planner: str) -> dict[str, An
         "goal_tolerance": float(campaign["goal_tolerance"]),
         "lookahead_segments": int(campaign["lookahead_segments"]),
     }
-    if planner != "r2apf":
+    if planner not in {"rapf", "r2apf"}:
         return shared
     return {
         "SENSE_RANGE": shared["sensing_range"],
@@ -121,7 +120,7 @@ def main() -> None:
     planner_config = load_json(config_path)
     environment = make_environment(args.scenario, args.seed)
     agent_config = planner_agent_config(campaign, args.planner)
-    if args.planner == "r2apf":
+    if args.planner in {"rapf", "r2apf"}:
         agent_config.update(planner_config)
         planner_config = {}
 

@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+"""Replay either RAPF planner with the shared navigation behavior."""
 import argparse
 import numpy as np
 import matplotlib.pyplot as plt
@@ -9,7 +10,7 @@ from matplotlib.lines import Line2D
 from simulation.env_gen_lunar import make_config, generate_lunar_env
 from simulation.sim_adapter import make_runtime_env_from_geometry
 from simulation.constants import DT
-from agents.RAPF_Agent_v4 import RAPF_Agent_v4
+from agents.navigation_core import NavigationCore
 
 
 def _normalize_virtual_obstacles(vobs):
@@ -39,7 +40,7 @@ def main():
     env = make_runtime_env_from_geometry(geom, cfg.L, n_agents=1, seed=args.seed)
 
     # Agent
-    agent = RAPF_Agent_v4(agent_id=0, position=env.starts[0], goal=env.goal)
+    agent = NavigationCore(agent_id=0, position=env.starts[0], goal=env.goal)
 
     history = {
         "pos": [],

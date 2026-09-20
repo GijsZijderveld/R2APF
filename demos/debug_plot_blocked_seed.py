@@ -9,7 +9,7 @@ import numpy as np
 from simulation.constants import DT
 from simulation.env_gen_lunar import generate_lunar_env, make_config
 from simulation.sim_adapter import make_runtime_env_from_geometry
-from agents.RAPF_Agent_v4 import RAPF_Agent_v4, RAPF_V4_PARAMS
+from agents.navigation_core import NavigationCore, NAVIGATION_PARAMS
 
 
 def obs_center(obs) -> np.ndarray:
@@ -58,11 +58,11 @@ def run_until_blocked(scenario: str, seed: int, max_ticks: int, speed: float):
     geom = generate_lunar_env(cfg)
     env = make_runtime_env_from_geometry(geom, cfg.L, n_agents=1, seed=seed)
 
-    agent = RAPF_Agent_v4(
+    agent = NavigationCore(
         agent_id=0,
         position=np.array(env.starts[0], dtype=float),
         goal=np.array(env.goal, dtype=float),
-        **RAPF_V4_PARAMS,
+        **NAVIGATION_PARAMS,
     )
 
     executed_positions = [np.array(agent.q, dtype=float).copy()]
@@ -260,7 +260,7 @@ def main():
 
     if blocked is None:
         print("No blocked step found for this seed.")
-        print("Did you add the last_blocked_move snapshot patch to RAPF_Agent_v4.py?")
+        print("Did you add the last_blocked_move snapshot patch to navigation_core.py?")
         return
 
     print(f"Blocked step found at tick : {blocked_tick}")

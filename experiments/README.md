@@ -24,7 +24,9 @@ Run from the repository root:
 python -m benchmark.benchmark_sensing_RAPF --episodes 10
 ```
 
-The script imports `RAPF_Agent_v4`. Its output filename includes the legacy label `oldRAPF`; this does not mean that the script imports an older agent version.
+The script now imports the unversioned `NavigationCore`. The preserved
+`oldRAPF` filename is only a historical artifact label; final comparisons use
+the planner names `rapf` and `r2apf`.
 
 Existing result tables are retained as historical artifacts and should not be overwritten when reproducing experiments. Use a separate output location or preserve generated files under a new name.
 

@@ -10,7 +10,7 @@ import pandas as pd
 from simulation.env_gen_lunar import make_config, generate_lunar_env
 from simulation.sim_adapter import make_runtime_env_from_geometry
 from simulation.constants import DT
-from agents.RAPF_Agent_v4 import RAPF_Agent_v4, RAPF_V4_PARAMS
+from agents.navigation_core import NavigationCore, NAVIGATION_PARAMS
 
 
 def _normalize_virtual_obstacles(vobs):
@@ -203,7 +203,7 @@ def run_benchmark(args):
     print(f"speed={args.speed} | DT={DT} | vo_round_decimals={args.vo_round_decimals}")
 
     os.makedirs("experiments/benchmarks", exist_ok=True)
-    agent_params = RAPF_V4_PARAMS.copy()
+    agent_params = NAVIGATION_PARAMS.copy()
     all_episode_data = []
 
     for scn in args.scenarios:
@@ -214,7 +214,7 @@ def run_benchmark(args):
             geom = generate_lunar_env(cfg)
             env = make_runtime_env_from_geometry(geom, cfg.L, n_agents=1, seed=seed)
 
-            agent = RAPF_Agent_v4(agent_id=0, position=env.starts[0], goal=env.goal, **agent_params)
+            agent = NavigationCore(agent_id=0, position=env.starts[0], goal=env.goal, **agent_params)
 
             row = _run_one_episode(
                 env,

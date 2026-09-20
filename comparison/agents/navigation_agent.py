@@ -1,22 +1,83 @@
 from __future__ import annotations
 
 import time
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 import numpy as np
 
-from comparison.collision import path_is_collision_free
-from comparison.execution import move_towards
-from comparison.interfaces import BenchmarkObservation, Planner, PlanningResult
-from comparison.sensing import merge_known_obstacles, reveal_obstacles
+from agents.navigation_core import NavigationCore
+from comparison.interfaces import BenchmarkObservation, PlanningResult
 
 
-class NavigationAgent:
-    """Shared sensing, replanning, and path execution for baseline planners."""
+class _CommonPlannerBridge:
+    """Translate the common planner contract to the verified navigation loop."""
+
+    def __init__(self, planner: Any) -> None:
+        self.planner = planner
+        self.bounds = None
+        self.total_plan_calls = 0
+        self.total_plan_failures = 0
+        self.total_planning_time_s = 0.0
+        self.maximum_planning_time_s = 0.0
+        self.last_diagnostics: Dict[str, Any] = {}
+
+    def reset(self, seed: int) -> None:
+        reset = getattr(self.planner, "reset", None)
+        if callable(reset):
+            reset(seed)
+
+    def plan(self, start_pos, goal_pos, real_obstacles, *, virtual_obstacles=None) -> dict:
+        started = time.perf_counter()
+        legacy_plan = getattr(self.planner, "plan_legacy", None)
+        if callable(legacy_plan):
+            result = legacy_plan(
+                start_pos, goal_pos, real_obstacles,
+                virtual_obstacles=virtual_obstacles,
+            )
+        else:
+            common = self.planner.plan(
+                start=np.asarray(start_pos, dtype=float),
+                goal=np.asarray(goal_pos, dtype=float),
+                known_obstacles=list(real_obstacles),
+                bounds=self.bounds,
+            )
+            if not isinstance(common, PlanningResult):
+                raise TypeError(f"{self.planner.name}.plan() must return PlanningResult.")
+            result = {
+                "success": common.success,
+                "path": common.path,
+                "break_reason": common.failure_reason,
+                "virtual_obstacles": virtual_obstacles or [],
+                "planning_effort": common.diagnostics.get("iterations", 0),
+            }
+            self.last_diagnostics = dict(common.diagnostics)
+            for key in ("collision_checks", "expanded_nodes", "samples"):
+                value = getattr(common, key)
+                if value is not None:
+                    self.last_diagnostics[key] = value
+
+        elapsed = time.perf_counter() - started
+        measured = float(result.get("planning_time_s", 0.0)) or elapsed
+        self.total_planning_time_s += measured
+        self.maximum_planning_time_s = max(self.maximum_planning_time_s, measured)
+        self.total_plan_calls += 1
+        if not result.get("success", False):
+            self.total_plan_failures += 1
+        self.last_diagnostics.update(result.get("diagnostics", {}))
+        return result
+
+
+class NavigationAgent(NavigationCore):
+    """One historical-compatible sensing and execution loop for every planner.
+
+    The inherited code is retained temporarily as the regression-verified
+    behavioral specification. It is not a distinct agent in the comparison:
+    every planner is executed through this public, unversioned class.
+    """
 
     def __init__(
         self,
-        planner: Planner,
+        planner: Any,
         agent_id: int = 0,
         sensing_range: float = 3.0,
         sensing_pad: float = 0.05,
@@ -24,188 +85,69 @@ class NavigationAgent:
         goal_tolerance: float = 0.50,
         waypoint_tolerance: float = 0.10,
         lookahead_segments: int = 8,
+        **navigation_params: Any,
     ) -> None:
-        self.name = planner.name
-        self.planner = planner
-        self.agent_id = int(agent_id)
-        self.sensing_range = float(sensing_range)
-        self.sensing_pad = float(sensing_pad)
-        self.agent_radius = float(agent_radius)
-        self.goal_tolerance = float(goal_tolerance)
-        self.waypoint_tolerance = float(waypoint_tolerance)
-        self.lookahead_segments = int(lookahead_segments)
-
-        self._position = np.zeros(2, dtype=float)
-        self._goal = np.zeros(2, dtype=float)
-        self._done = False
-        self._known_obstacles: List[Any] = []
-        self._path: List[np.ndarray] = []
-        self._path_index = 0
-
-        self._planning_calls = 0
-        self._replans = 0
-        self._plan_failures = 0
-        self._blocked_steps = 0
-        self._planning_times: List[float] = []
-        self._planner_diagnostics: Dict[str, Any] = {}
+        self._comparison_planner = planner
+        self._comparison_agent_id = int(agent_id)
+        self._navigation_params = {
+            "SENSE_RANGE": float(sensing_range),
+            "SENSE_PAD": float(sensing_pad),
+            "RHO_L": float(agent_radius),
+            "GOAL_TOLERANCE": float(goal_tolerance),
+            "WAYPOINT_TOLERANCE": float(waypoint_tolerance),
+            "LOOKAHEAD_SEGMENTS": int(lookahead_segments),
+            **navigation_params,
+        }
+        self._bridge: _CommonPlannerBridge | None = None
         self._total_obstacles = 0
 
     def reset(self, environment: Any, seed: int) -> None:
-        planner_reset = getattr(self.planner, "reset", None)
-        if callable(planner_reset):
-            planner_reset(seed)
-        self._position = np.asarray(
-            environment.starts[self.agent_id], dtype=float
-        ).copy()
-        if hasattr(environment, "goals"):
-            self._goal = np.asarray(
-                environment.goals[self.agent_id], dtype=float
-            ).copy()
-        else:
-            self._goal = np.asarray(environment.goal, dtype=float).copy()
-
-        self._done = False
-        self._known_obstacles = []
-        self._path = []
-        self._path_index = 0
-        self._planning_calls = 0
-        self._replans = 0
-        self._plan_failures = 0
-        self._blocked_steps = 0
-        self._planning_times = []
-        self._planner_diagnostics = {}
+        start = np.asarray(environment.starts[self._comparison_agent_id], dtype=float)
+        # The single-agent benchmark historically used the canonical global
+        # goal (env.goal), not the nearby randomized visualization goal.
+        goal_source = (
+            environment.goal
+            if hasattr(environment, "goal")
+            else environment.goals[self._comparison_agent_id]
+        )
+        goal = np.asarray(goal_source, dtype=float)
+        NavigationCore.__init__(
+            self, self._comparison_agent_id, start, goal, **self._navigation_params
+        )
+        self._bridge = _CommonPlannerBridge(self._comparison_planner)
+        self._bridge.reset(seed)
+        self.planner = self._bridge
         self._total_obstacles = len(getattr(environment, "obstacles", []))
 
     @property
-    def position(self) -> np.ndarray:
-        return self._position
-
-    @property
-    def goal(self) -> np.ndarray:
-        return self._goal
-
-    @property
     def reached_goal(self) -> bool:
-        return self._done
+        return bool(self.done)
 
-    def _remaining_path_is_valid(self) -> bool:
-        if not self._path or self._path_index >= len(self._path):
-            return False
-
-        path = [self._position.copy()]
-        path.extend(self._path[self._path_index :])
-        return path_is_collision_free(
-            path,
-            self._known_obstacles,
-            self.agent_radius,
-            start_index=0,
-            lookahead_segments=self.lookahead_segments,
+    def step(self, observation: BenchmarkObservation, dt: float, speed_limit: float) -> None:
+        if self._bridge is None:
+            raise RuntimeError("Call reset(environment, seed) before step().")
+        self._bridge.bounds = observation.bounds
+        NavigationCore.step(
+            self, observation.environment, None, float(dt), float(speed_limit),
+            observation.time_step, observation.bounds,
         )
-
-    def _replan(self, bounds: Any) -> bool:
-        started = time.perf_counter()
-        result = self.planner.plan(
-            start=self._position.copy(),
-            goal=self._goal.copy(),
-            known_obstacles=list(self._known_obstacles),
-            bounds=bounds,
-        )
-        measured_time = time.perf_counter() - started
-
-        if not isinstance(result, PlanningResult):
-            raise TypeError(
-                f"{self.planner.name}.plan() must return PlanningResult."
-            )
-
-        planning_time = (
-            float(result.planning_time_s)
-            if result.planning_time_s > 0.0
-            else measured_time
-        )
-        self._planning_times.append(planning_time)
-        self._planning_calls += 1
-        if self._planning_calls > 1:
-            self._replans += 1
-
-        self._planner_diagnostics = dict(result.diagnostics)
-        for key in ("collision_checks", "expanded_nodes", "samples"):
-            value = getattr(result, key)
-            if value is not None:
-                self._planner_diagnostics[key] = value
-
-        if not result.success or not result.path:
-            self._path = []
-            self._path_index = 0
-            self._plan_failures += 1
-            return False
-
-        path = [np.asarray(point, dtype=float).copy() for point in result.path]
-        if len(path) > 1 and np.linalg.norm(path[0] - self._position) < 1e-6:
-            path = path[1:]
-
-        self._path = path
-        self._path_index = 0
-        return bool(self._path)
-
-    def step(
-        self,
-        observation: BenchmarkObservation,
-        dt: float,
-        speed_limit: float,
-    ) -> None:
-        if self._done:
-            return
-
-        environment = observation.environment
-        newly_visible = reveal_obstacles(
-            self._position,
-            environment.obstacles,
-            self.sensing_range,
-            self.sensing_pad,
-        )
-        self._known_obstacles = merge_known_obstacles(
-            self._known_obstacles,
-            newly_visible,
-        )
-
-        if not self._remaining_path_is_valid():
-            self._replan(observation.bounds)
-
-        if self._path_index < len(self._path):
-            target = self._path[self._path_index]
-            new_position, moved, blocked = move_towards(
-                self._position,
-                target,
-                speed_limit,
-                dt,
-                self._known_obstacles,
-                self.agent_radius,
-            )
-            self._position = new_position
-
-            if blocked:
-                self._blocked_steps += 1
-                self._path = []
-                self._path_index = 0
-            elif moved and np.linalg.norm(self._position - target) < self.waypoint_tolerance:
-                self._path_index += 1
-
-        if np.linalg.norm(self._position - self._goal) < self.goal_tolerance:
-            self._done = True
 
     def diagnostics(self) -> Dict[str, Any]:
-        total_time = float(sum(self._planning_times))
-        maximum_time = (
-            float(max(self._planning_times)) if self._planning_times else 0.0
-        )
+        if self._bridge is None:
+            raise RuntimeError("Call reset(environment, seed) before diagnostics().")
         return {
-            "planning_calls": self._planning_calls,
-            "replans": self._replans,
-            "planning_time_total_s": total_time,
-            "planning_time_max_s": maximum_time,
-            "plan_failures": self._plan_failures,
-            "blocked_steps": self._blocked_steps,
-            "known_obstacles": len(self._known_obstacles),
+            "planning_calls": self._bridge.total_plan_calls,
+            "replans": int(getattr(self, "replan_count", 0)),
+            "planning_time_total_s": self._bridge.total_planning_time_s,
+            "planning_time_max_s": self._bridge.maximum_planning_time_s,
+            "planning_effort": float(getattr(self, "planning_effort", 0.0)),
+            "plan_failures": self._bridge.total_plan_failures,
+            "blocked_steps": int(getattr(self, "blocked_steps", 0)),
+            "known_obstacles": len(getattr(self, "perceived_obstacles", [])),
             "total_obstacles": self._total_obstacles,
-            **self._planner_diagnostics,
+            "virtual_obstacles_created": int(getattr(self, "virtual_total_created", 0)),
+            "max_active_virtual_obstacles": int(getattr(self, "virtual_max_active", 0)),
+            "backtrack_tries": int(getattr(self, "_agent_backtrack_tries", 0)),
+            "backtrack_failed": bool(getattr(self, "backtrack_failed", False)),
+            **self._bridge.last_diagnostics,
         }

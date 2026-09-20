@@ -2,9 +2,12 @@ import unittest
 
 import numpy as np
 
-from agents.RAPF_Agent_v4 import RAPF_Agent_v4
-from comparison.agents import NavigationAgent, RAPFAgentV4Adapter
+from comparison.agents import NavigationAgent
 from comparison.interfaces import BenchmarkObservation, PlanningResult
+from comparison.registry import available_planners, build_agent
+from comparison.rapf_adapter import RAPFPlannerAdapter
+from planners.rapf_global_planner import RAPFGlobalPlanner as R2APFPlanner
+from planners.rapf_paper_planner import RAPFGlobalPlanner as RAPFPaperPlanner
 
 
 class EmptyEnvironment:
@@ -54,14 +57,28 @@ class ComparisonContractTests(unittest.TestCase):
         self.assertTrue(agent.reached_goal)
         self.assertGreaterEqual(agent.diagnostics()["planning_calls"], 1)
 
-    def test_rapf_is_wrapped_without_inheritance(self):
+    def test_all_planners_use_the_same_navigation_agent(self):
         environment = EmptyEnvironment()
-        adapter = RAPFAgentV4Adapter()
-        adapter.reset(environment, seed=42)
+        for name in available_planners():
+            agent = build_agent(name)
+            agent.reset(environment, seed=42)
+            self.assertIsInstance(agent, NavigationAgent)
+            self.assertEqual(agent.diagnostics()["total_obstacles"], 0)
 
-        self.assertIsInstance(adapter.wrapped_agent, RAPF_Agent_v4)
-        self.assertNotIsInstance(adapter, RAPF_Agent_v4)
-        self.assertEqual(adapter.diagnostics()["total_obstacles"], 0)
+    def test_rapf_names_select_the_historical_planners(self):
+        environment = EmptyEnvironment()
+        self.assertIn("rapf", available_planners())
+        self.assertIn("r2apf", available_planners())
+
+        rapf = build_agent("rapf")
+        rapf.reset(environment, seed=42)
+        self.assertIsInstance(rapf._comparison_planner, RAPFPlannerAdapter)
+        self.assertIsInstance(rapf._comparison_planner.wrapped_planner, RAPFPaperPlanner)
+
+        r2apf = build_agent("r2apf")
+        r2apf.reset(environment, seed=42)
+        self.assertIsInstance(r2apf._comparison_planner, RAPFPlannerAdapter)
+        self.assertIsInstance(r2apf._comparison_planner.wrapped_planner, R2APFPlanner)
 
 
 if __name__ == "__main__":

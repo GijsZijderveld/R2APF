@@ -9,9 +9,13 @@ The database is the original SQLite file and may contain studies from multiple s
 
 ## Important version relationship
 
-`rapf_tune_v3.py` imports `agents/RAPF_Agent_v3.py`. It does **not** tune `RAPF_Agent_v4.py` directly.
+`rapf_tune_v3.py` belongs to the historical tuning workflow and does not tune
+the complete shared navigation loop directly.
 
-RAPF v4 subsequently introduced a sensing, path-tracking, and reactive-replanning wrapper around `planners/rapf_global_planner.py`, with parameters stored in `RAPF_V4_PARAMS`. The retained Optuna files therefore provide tuning history and parameter provenance, not a direct end-to-end v4 tuning pipeline.
+The later navigation layer introduced sensing, path tracking, and reactive
+replanning around `planners/rapf_global_planner.py`. The retained Optuna files
+therefore provide tuning history and parameter provenance, not a direct
+end-to-end tuning pipeline.
 
 ## Inspect the database
 

@@ -1,8 +1,8 @@
 import numpy as np
 from planners.rapf_global_planner import RAPFGlobalPlanner
 
-# Default parameters for V4 Agent logic
-RAPF_V4_PARAMS = {
+# Defaults of the regression-verified navigation loop.
+NAVIGATION_PARAMS = {
     # Sensing
     'SENSE_RANGE': 3.0,            # Perception radius
     'SENSE_USE_FOV': False,        # Toggle Field-of-View restriction
@@ -19,9 +19,9 @@ RAPF_V4_PARAMS = {
 }
 
 
-class RAPF_Agent_v4:
+class NavigationCore:
     """
-    RAPF v4 Agent: High-level controller responsible for sensing,
+    Historical-compatible controller responsible for sensing,
     path tracking, and reactive replanning.
     Strict path-following (Pure Pursuit removed).
     """
@@ -32,7 +32,7 @@ class RAPF_Agent_v4:
         self.heading = 0.0  # Radians
 
         # Merge parameters
-        self.p = {**RAPF_V4_PARAMS, **params}
+        self.p = {**NAVIGATION_PARAMS, **params}
 
         # Internal State
         self.done = False
@@ -190,7 +190,7 @@ class RAPF_Agent_v4:
 
             self.plan_fail_count = getattr(self, "plan_fail_count", 0) + 1
             self.last_plan_fail_step = time_step
-            # print(f"[RAPF_Agent_v4] PLAN FAILED at t={time_step} | sensed={len(self.perceived_obstacles)}")
+            # print(f"[NavigationCore] PLAN FAILED at t={time_step} | sensed={len(self.perceived_obstacles)}")
 
         # --- Record executed ALL pose trace (debug/replay only) ---
         if not hasattr(self, "executed_path_all") or self.executed_path_all is None:
@@ -226,7 +226,7 @@ class RAPF_Agent_v4:
 
         max_tries = int(self.p.get("AGENT_BACKTRACK_MAX_TRIES", 5))
         if self._agent_backtrack_tries >= max_tries:
-            print(f"[RAPF_Agent_v4] Backtrack give-up after {self._agent_backtrack_tries} tries at t={time_step} | reason={reason}")
+            print(f"[NavigationCore] Backtrack give-up after {self._agent_backtrack_tries} tries at t={time_step} | reason={reason}")
             self.backtrack_failed = True
             return
 
@@ -378,7 +378,7 @@ class RAPF_Agent_v4:
                 # invalidate current plan so we replan next tick
                 self.planned_path = []
                 self.path_index = 0
-                print(f"[RAPF_Agent_v4] BLOCKED MOVE at | sensed={len(self.perceived_obstacles)} | obs_radius={o_r} | obs_pos={o_pos} | d={d:.3f}" )
+                print(f"[NavigationCore] BLOCKED MOVE at | sensed={len(self.perceived_obstacles)} | obs_radius={o_r} | obs_pos={o_pos} | d={d:.3f}" )
                 return False
 
         # commit move

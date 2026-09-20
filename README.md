@@ -6,12 +6,13 @@ This repository is a focused extraction from the original thesis development rep
 
 ## What is included
 
-- `agents/RAPF_Agent_v4.py` — sensing, path tracking, and replanning agent.
-- `planners/rapf_global_planner.py` — global R2APF/RAPF planner used by the agent.
-- `planners/rapf_paper_planner.py` — paper-oriented planner implementation retained from the source repository.
+- `comparison/agents/navigation_agent.py` — shared sensing, path tracking, recovery, and execution agent used by every planner.
+- `agents/navigation_core.py` — regression-verified implementation of that shared navigation behavior.
+- `planners/rapf_global_planner.py` — the R2APF planner.
+- `planners/rapf_paper_planner.py` — the original RAPF planner retained from the paper implementation.
 - `simulation/` — the environment, obstacle, and adapter modules required by the demonstration.
-- `demos/replay_RAPF_v4.py` — a single-agent simulation and visualization.
-- `benchmark/benchmark_sensing_RAPF.py` — the sensing and replanning benchmark for `RAPF_Agent_v4`.
+- `demos/replay_rapf.py` — a single-agent simulation and visualization.
+- `benchmark/benchmark_sensing_RAPF.py` — the historical sensing and replanning benchmark.
 - `experiments/benchmarks/` — preserved 2,500-episode result tables.
 - `experiments/optuna/` — the retained RAPF v3 tuning script and original Optuna database, included as parameter-development provenance.
 
@@ -42,13 +43,13 @@ On Windows PowerShell, activate the environment with:
 Run commands from the repository root so the existing imports resolve correctly:
 
 ```bash
-python -m demos.replay_RAPF_v4
+python -m demos.replay_rapf
 ```
 
 Optional arguments:
 
 ```bash
-python -m demos.replay_RAPF_v4 --scenario B --seed 42 --steps 1000 --speed 1
+python -m demos.replay_rapf --scenario B --seed 42 --steps 1000 --speed 1
 ```
 
 The demonstration generates a lunar-style obstacle environment, simulates one agent with incrementally perceived obstacles, and displays the executed and currently planned paths.
@@ -62,7 +63,22 @@ and replanning for R2APF and all baseline planners:
 python scripts/visualize_planner.py --planner astar --scenario A --seed 5000
 ```
 
-Valid planner names are `r2apf`, `apf`, `astar`, `dstar_lite`, and `rrt_star`.
+Valid planner names are `rapf`, `r2apf`, `apf`, `astar`, `dstar_lite`, and `rrt_star`.
+
+All planners use the same unversioned `NavigationAgent`. `rapf` and `r2apf`
+select different planner adapters; sensing, execution, recovery, and metric
+collection remain shared. Replay a historical regression sample with:
+
+```bash
+python scripts/verify_rapf_regression.py --planner both --episodes 3
+```
+
+The verifier intentionally uses each artifact's original execution route.
+`sensing_v4_withvo.csv` used the legacy `simulate_episode` runner with a
+1.5 m/s velocity clamp, while `sensing_v4_oldRAPF.csv` used the later manual
+loop at 1.0 m/s. These files are reproducibility references, not a controlled
+head-to-head comparison. New comparisons must run both planners through
+`scripts/run_comparison.py` with the same benchmark configuration.
 Unknown obstacles are drawn faintly until sensed, the orange line is the
 remaining plan, the blue line is the executed trajectory, and purple crosses
 mark planning and replanning locations.
@@ -89,9 +105,9 @@ Install the additional dependencies with:
 python -m pip install -r requirements-experiments.txt
 ```
 
-The preserved benchmark, tuning database, result tables, and analysis commands are documented in [`experiments/README.md`](experiments/README.md). The Optuna artifacts tune RAPF v3 and are retained as provenance; they do not directly tune the v4 agent.
+The preserved benchmark, tuning database, result tables, and analysis commands are documented in [`experiments/README.md`](experiments/README.md). The Optuna artifacts tune the planner parameters and are retained as provenance.
 
-A modular planner-comparison framework is documented in [`comparison/README.md`](comparison/README.md). It wraps the unchanged RAPF v4 agent and provides a shared sensing, execution, collision, and metric layer for new baseline planners.
+A modular planner-comparison framework is documented in [`comparison/README.md`](comparison/README.md). Every method uses the same `NavigationAgent` sensing, execution, recovery, collision, and metric layer.
 
 ## Repository status
 

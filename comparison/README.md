@@ -1,7 +1,7 @@
 # Planner comparison framework
 
 This package provides the controlled layer for comparing R2APF with other
-planning families without modifying the historical RAPF implementation.
+planning families with one shared navigation and measurement layer.
 
 ## Comparison policy
 
@@ -21,23 +21,18 @@ the publication gate before the full experiment campaign.
 
 ## Design
 
-- `RAPFAgentV4Adapter` delegates to `agents/RAPF_Agent_v4.py`.
-- `NavigationAgent` provides shared sensing, path validation, replanning, and
-  movement for new baseline planners.
-- Every baseline implements the small `Planner` protocol and returns a
+- `NavigationAgent` provides the same sensing, path validation, replanning,
+  recovery, movement, and goal logic for every planner.
+- `RAPFPlannerAdapter` exposes RAPF and R2APF without changing their planning
+  algorithms.
+- Every other planner implements the small `Planner` protocol and returns a
   `PlanningResult`.
 - `runner.py` applies common seeds, stopping conditions, collision checks, and
   metrics.
 
-The adapter uses composition. `RAPF_Agent_v4` does not inherit from a new
-class and its source is not changed.
-
-## Comparison levels
-
-The initial campaign is a whole-system comparison: unchanged RAPF v4 versus
-baseline planners using the shared baseline agent. A later controlled
-planner-only experiment may place an R2APF planner behind `NavigationAgent`,
-but that must be reported separately because it is not the historical v4 agent.
+The shared navigation behavior is regression-tested against the preserved
+historical runs. The final campaign is therefore a planner comparison: all
+methods use the same agent-level behavior and differ only in planning logic.
 
 ## Add a baseline
 

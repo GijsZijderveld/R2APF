@@ -86,7 +86,7 @@ def main() -> None:
         "lookahead_segments": int(campaign["lookahead_segments"]),
     }
 
-    if args.planner == "r2apf":
+    if args.planner in {"rapf", "r2apf"}:
         agent_config = {
             "SENSE_RANGE": shared_agent_config["sensing_range"],
             "SENSE_PAD": shared_agent_config["sensing_pad"],

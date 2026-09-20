@@ -28,7 +28,7 @@ GOAL = np.array([5.5, 5.5])
 class BaselinePlannerTests(unittest.TestCase):
     def test_builtin_planners_are_registered(self):
         self.assertTrue(
-            {"r2apf", "apf", "astar", "dstar_lite", "rrt_star"}
+            {"rapf", "r2apf", "apf", "astar", "dstar_lite", "rrt_star"}
             <= set(available_planners())
         )
 

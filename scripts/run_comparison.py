@@ -11,7 +11,7 @@ if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
 
 from comparison.registry import available_planners, build_agent
-from comparison.runner import BenchmarkConfig, run_campaign, write_results
+from comparison.runner import BenchmarkConfig, run_episode, write_results
 from simulation.env_gen_lunar import generate_lunar_env, make_config
 from simulation.sim_adapter import make_runtime_env_from_geometry
 
@@ -30,6 +30,14 @@ def environment_factory(scenario: str, seed: int):
         n_agents=1,
         seed=seed,
     )
+
+
+def interleaved_jobs(planner_names, scenarios, seeds):
+    """Yield every planner for one scenario/seed before advancing."""
+    for scenario in scenarios:
+        for seed in seeds:
+            for planner_name in planner_names:
+                yield planner_name, scenario, seed
 
 
 def main() -> None:
@@ -67,10 +75,10 @@ def main() -> None:
         if args.episodes is not None
         else int(campaign["episodes_per_scenario"])
     )
-    seeds = range(
+    seeds = tuple(range(
         int(campaign["seed_start"]),
         int(campaign["seed_start"]) + episodes,
-    )
+    ))
 
     runner_config = BenchmarkConfig(
         dt=float(campaign["dt"]),
@@ -99,7 +107,7 @@ def main() -> None:
     }
 
     planner_names = available_planners() if args.planner == "all" else (args.planner,)
-    all_results = []
+    planner_setups = {}
     for planner_name in planner_names:
         default_config = Path(f"configs/planners/{planner_name}.json")
         config_path = Path(args.planner_config) if args.planner_config else default_config
@@ -115,27 +123,42 @@ def main() -> None:
             }
         else:
             agent_config = shared_agent_config
+        planner_setups[planner_name] = (planner_config, agent_config)
 
-        results = run_campaign(
-            lambda planner_name=planner_name, planner_config=planner_config,
-            agent_config=agent_config: build_agent(
-                planner_name,
-                planner_config=planner_config,
-                agent_config=agent_config,
-            ),
-            environment_factory,
-            planner_name=planner_name,
-            scenarios=campaign["scenarios"],
-            seeds=seeds,
-            config=runner_config,
+    all_results = []
+    completed_cases = 0
+    total_cases = len(campaign["scenarios"]) * len(seeds)
+    for planner_name, scenario, seed in interleaved_jobs(
+        planner_names,
+        campaign["scenarios"],
+        seeds,
+    ):
+        planner_config, agent_config = planner_setups[planner_name]
+        all_results.append(
+            run_episode(
+                build_agent(
+                    planner_name,
+                    planner_config=planner_config,
+                    agent_config=agent_config,
+                ),
+                environment_factory(scenario, seed),
+                planner_name=planner_name,
+                scenario=scenario,
+                seed=seed,
+                config=runner_config,
+            )
         )
-        all_results.extend(results)
-        # Checkpoint after every planner so completed work survives interruption.
-        write_results(all_results, args.output)
-        print(
-            f"Completed {planner_name}: {len(results)} episodes; "
-            f"checkpointed {len(all_results)} rows to {args.output}"
-        )
+
+        # A checkpoint always contains the same number of completed cases for
+        # every selected planner.
+        if planner_name == planner_names[-1]:
+            completed_cases += 1
+            write_results(all_results, args.output)
+            print(
+                f"Completed case {completed_cases}/{total_cases}: "
+                f"scenario={scenario}, seed={seed}, planners={len(planner_names)}; "
+                f"checkpointed {len(all_results)} rows to {args.output}"
+            )
 
 
 if __name__ == "__main__":

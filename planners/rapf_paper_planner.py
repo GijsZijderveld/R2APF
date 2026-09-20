@@ -33,6 +33,7 @@ class RAPFGlobalPlanner:
         self.total_virtual_obstacles_created = 0
         self.total_plan_calls = 0
         self.total_plan_failures = 0
+        self.total_recovery_events = 0
         self._bacteria_angles = (
             2.0 * np.pi * np.arange(int(self.p['N_B'])) / int(self.p['N_B'])
         )
@@ -98,12 +99,17 @@ class RAPFGlobalPlanner:
                     vo = CircularObstacle(center=sim_q.copy(), radius=vo_radius, kind="virtual")
                     active_vos.append(vo)
                     self.total_virtual_obstacles_created += 1
+                    self.total_recovery_events += 1
 
                     if len(sim_path) <= 1 or np.linalg.norm(sim_q - caller_start) < 1e-6:
                         return {
                             "success": False,
                             "break_reason": "agent_backtrack",
                             "virtual_obstacles": active_vos,
+                            "total_virtual_obstacles_created": self.total_virtual_obstacles_created,
+                            "total_plan_calls": self.total_plan_calls,
+                            "total_plan_failures": self.total_plan_failures,
+                            "diagnostics": self._diagnostics(),
                         }
 
                     effective_start = sim_q.copy()
@@ -138,6 +144,13 @@ class RAPFGlobalPlanner:
             "total_virtual_obstacles_created": self.total_virtual_obstacles_created,
             "total_plan_calls": self.total_plan_calls,
             "total_plan_failures": self.total_plan_failures,
+            "diagnostics": self._diagnostics(),
+        }
+
+    def _diagnostics(self):
+        return {
+            "recovery_events": self.total_recovery_events,
+            "artificial_obstacles_inserted": self.total_virtual_obstacles_created,
         }
 
     @staticmethod

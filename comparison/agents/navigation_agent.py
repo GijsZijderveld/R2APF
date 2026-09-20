@@ -57,7 +57,8 @@ class _CommonPlannerBridge:
                     self.last_diagnostics[key] = value
 
         elapsed = time.perf_counter() - started
-        measured = float(result.get("planning_time_s", 0.0)) or elapsed
+        # Published timing uses this one shared wall-clock boundary for every planner.
+        measured = elapsed
         self.total_planning_time_s += measured
         self.maximum_planning_time_s = max(self.maximum_planning_time_s, measured)
         self.total_plan_calls += 1

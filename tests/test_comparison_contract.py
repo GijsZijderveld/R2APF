@@ -9,6 +9,7 @@ from comparison.rapf_adapter import RAPFPlannerAdapter
 from comparison.runner import BenchmarkConfig, run_episode
 from planners.rapf_global_planner import RAPFGlobalPlanner as R2APFPlanner
 from planners.rapf_paper_planner import RAPFGlobalPlanner as RAPFPaperPlanner
+from simulation.env.runtime import CircularObstacle
 
 
 class EmptyEnvironment:
@@ -87,6 +88,28 @@ class FailureRecoveryAgent:
 
 
 class ComparisonContractTests(unittest.TestCase):
+    def test_r2apf_records_midpoint_only_rejections(self):
+        planner = R2APFPlanner()
+        obstacle = CircularObstacle(
+            center=np.array([0.29, 0.0]),
+            radius=0.05,
+        )
+        prepared = planner._prepare_obstacles([obstacle])
+
+        planner._compute_internal_step(
+            np.array([0.0, 0.0]),
+            np.array([2.0, 0.0]),
+            prepared,
+        )
+
+        diagnostics = planner._diagnostics()
+        self.assertGreaterEqual(diagnostics["unique_midpoint_rejections"], 1)
+        self.assertGreaterEqual(
+            diagnostics["selection_changes_due_to_midpoint_checking"],
+            1,
+        )
+        self.assertIsNone(diagnostics["path_reuse_ratio"])
+
     def test_repeated_stationary_planning_failures_stop_episode(self):
         environment = EmptyEnvironment()
         metrics = run_episode(
@@ -127,7 +150,21 @@ class ComparisonContractTests(unittest.TestCase):
             "consecutive_planning_failures",
         )
         self.assertEqual(metrics.planning_calls, 3)
+        self.assertEqual(metrics.failed_planner_calls, 3)
         self.assertEqual(metrics.execution_steps, 5)
+
+    def test_unsupported_planner_diagnostics_are_absent(self):
+        metrics = run_episode(
+            NavigationAgent(planner=StraightLinePlanner(), goal_tolerance=0.05),
+            EmptyEnvironment(),
+            planner_name="straight",
+            scenario="test",
+            seed=42,
+            config=BenchmarkConfig(max_steps=20),
+        )
+        row = metrics.to_dict()
+        self.assertNotIn("planner_unique_midpoint_rejections", row)
+        self.assertNotIn("planner_repair_events", row)
 
     def test_generic_agent_accepts_interchangeable_planner(self):
         environment = EmptyEnvironment()

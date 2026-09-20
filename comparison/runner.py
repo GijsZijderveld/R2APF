@@ -151,6 +151,7 @@ def run_episode(
     sensing_ratio = known / total if total > 0 else 1.0
 
     planning_calls = int(diagnostics.pop("planning_calls", 0))
+    failed_planner_calls = int(diagnostics.pop("plan_failures", 0))
     replans = int(diagnostics.pop("replans", max(0, planning_calls - 1)))
     total_planning_time = float(
         diagnostics.pop("planning_time_total_s", 0.0)
@@ -175,6 +176,7 @@ def run_episode(
             )
         ),
         planning_calls=planning_calls,
+        failed_planner_calls=failed_planner_calls,
         total_planning_time_s=total_planning_time,
         maximum_planning_time_s=maximum_planning_time,
         replans=replans,

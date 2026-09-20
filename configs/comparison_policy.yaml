@@ -358,6 +358,7 @@ controlled_comparison:
       - final_goal_distance
       - execution_steps
       - planning_calls
+      - failed_planner_calls
       - replans
       - total_planning_time
       - maximum_planning_time
@@ -372,10 +373,21 @@ controlled_comparison:
       astar: [expanded_nodes, collision_checks]
       dstar_lite: [expanded_vertices, updated_vertices, collision_checks]
       rrt_star: [samples, rewires, collision_checks]
-      r2apf: [planning_effort, virtual_obstacles_created, blocked_steps]
+      rapf: [recovery_events, artificial_obstacles_inserted]
+      r2apf:
+        - planning_effort
+        - unique_midpoint_rejections
+        - selection_changes_due_to_midpoint_checking
+        - repair_events
+        - path_reuse_ratio
+        - recovery_events
+        - artificial_obstacles_inserted
+        - blocked_steps
     note: >
       Planner-specific counters are diagnostic and must not be compared as
-      equivalent computational units.
+      equivalent computational units. Unsupported diagnostics are left blank,
+      not reported as zero. The path-reuse ratio is the mean retained fraction
+      across partial repairs in an episode and is blank when no repair occurs.
 
 publication_gate:
   must_be_resolved_before_full_campaign:

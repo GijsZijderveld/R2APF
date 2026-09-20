@@ -29,6 +29,11 @@ class RAPFGlobalPlanner:
         self.total_virtual_obstacles_created = 0
         self.total_plan_calls = 0
         self.total_plan_failures = 0
+        self._midpoint_rejections = set()
+        self.total_selection_changes_due_to_midpoint_checking = 0
+        self.total_repair_events = 0
+        self._path_reuse_ratios = []
+        self.total_recovery_events = 0
         self._bacteria_angles = (
             2.0 * np.pi * np.arange(int(self.p['N_B'])) / int(self.p['N_B'])
         )
@@ -98,6 +103,7 @@ class RAPFGlobalPlanner:
                     vo = CircularObstacle(center=sim_q, radius=vo_radius, kind="virtual")
                     active_vos.append(vo)
                     self.total_virtual_obstacles_created += 1
+                    self.total_recovery_events += 1
                     
                     # 2. Define the 'Danger Zone' radius
                     influence_threshold = vo_radius + self.p['RHO_U']
@@ -111,12 +117,25 @@ class RAPFGlobalPlanner:
                     
                     if cut_index != -1:
                         # Found a safe point in the current simulated path
+                        retained_points = cut_index + 1
+                        self.total_repair_events += 1
+                        self._path_reuse_ratios.append(
+                            retained_points / len(sim_path)
+                        )
                         sim_path = sim_path[:cut_index + 1]
                         effective_start = sim_path[-1].copy()
                     else:
                         # CURRENT sim path is fully inside the danger zone.
                         # Agent-side logic will decide whether to backtrack.
-                        return {"success": False, "break_reason": "agent_backtrack", "virtual_obstacles": active_vos}
+                        return {
+                            "success": False,
+                            "break_reason": "agent_backtrack",
+                            "virtual_obstacles": active_vos,
+                            "total_virtual_obstacles_created": self.total_virtual_obstacles_created,
+                            "total_plan_calls": self.total_plan_calls,
+                            "total_plan_failures": self.total_plan_failures,
+                            "diagnostics": self._diagnostics(),
+                        }
 
                     if dbg:
                         print(f"[Planner] STUCK at {sim_q}. Rewinding to {effective_start}.")
@@ -147,7 +166,25 @@ class RAPFGlobalPlanner:
             "total_virtual_obstacles_created": self.total_virtual_obstacles_created,
             "total_plan_calls": self.total_plan_calls,
             "total_plan_failures": self.total_plan_failures,
+            "diagnostics": self._diagnostics(),
          }
+
+    def _diagnostics(self):
+        reuse_ratio = (
+            float(np.mean(self._path_reuse_ratios))
+            if self._path_reuse_ratios
+            else None
+        )
+        return {
+            "unique_midpoint_rejections": len(self._midpoint_rejections),
+            "selection_changes_due_to_midpoint_checking": (
+                self.total_selection_changes_due_to_midpoint_checking
+            ),
+            "repair_events": self.total_repair_events,
+            "path_reuse_ratio": reuse_ratio,
+            "recovery_events": self.total_recovery_events,
+            "artificial_obstacles_inserted": self.total_virtual_obstacles_created,
+        }
 
 
     @staticmethod
@@ -168,23 +205,47 @@ class RAPFGlobalPlanner:
 
         best_point = pos
         min_potential = j_robot
+        endpoint_only_best = pos
+        endpoint_only_min_potential = j_robot
+        midpoint_rejected_points = set()
         
         for b_point in bacteria_points:
-            # Collision check including Midpoint Check to prevent "tunneling" 
-            collision = False
+            endpoint_collision = self._is_collision(b_point, obstacles)
+            midpoint_collision = False
             for t in [0.25, 0.5, 0.75]:
                 check_p = pos + t * (b_point - pos)
                 if self._is_collision(check_p, obstacles):
-                    collision = True
+                    midpoint_collision = True
                     break
-            
-            if collision:
+
+            if midpoint_collision and not endpoint_collision:
+                transition = tuple(np.round(np.concatenate((pos, b_point)), 12))
+                self._midpoint_rejections.add(transition)
+                midpoint_rejected_points.add(tuple(b_point))
+
+            # Evaluate the endpoint-only choice in parallel for diagnostics.
+            # This does not alter the existing midpoint-filtered selection.
+            j_bac = None
+            if not endpoint_collision:
+                j_bac = self._compute_total_potential(b_point, goal, obstacles)
+                if j_bac < endpoint_only_min_potential:
+                    endpoint_only_min_potential = j_bac
+                    endpoint_only_best = b_point
+
+            if midpoint_collision:
                 continue
 
-            j_bac = self._compute_total_potential(b_point, goal, obstacles)
+            if j_bac is None:
+                j_bac = self._compute_total_potential(b_point, goal, obstacles)
             if j_bac < min_potential:
                 min_potential = j_bac
                 best_point = b_point
+
+        if (
+            tuple(endpoint_only_best) in midpoint_rejected_points
+            and not np.array_equal(endpoint_only_best, best_point)
+        ):
+            self.total_selection_changes_due_to_midpoint_checking += 1
         
         # Stuck if no better point is found [cite: 2192]
         is_stuck = np.linalg.norm(best_point - pos) < 1e-4

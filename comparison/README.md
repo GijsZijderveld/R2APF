@@ -47,3 +47,11 @@ methods use the same agent-level behavior and differ only in planning logic.
 Keep planner-specific effort counters in `PlanningResult.diagnostics`. Common
 claims should use success, executed path length, collisions, planning time, and
 replans.
+
+The controlled campaign also records optional mechanism diagnostics. R2APF
+reports unique midpoint-only candidate rejections, selection changes caused by
+that check, partial-repair events, and the mean fraction of the existing path
+retained by those repairs. RAPF and R2APF report local-minimum recovery events
+and inserted artificial obstacles. Unsupported planner diagnostics are omitted,
+which produces empty CSV cells rather than misleading zero values. Failed
+planner calls are a common metric available for every planner.

@@ -20,6 +20,7 @@ class BenchmarkConfig:
     max_steps: int = 1000
     agent_radius: float = 0.30
     stop_on_collision: bool = False
+    max_consecutive_plan_failures: int = 3
     max_consecutive_stationary_plan_failures: int = 3
     max_total_planning_time_s: Optional[float] = None
 
@@ -41,6 +42,7 @@ def run_episode(
     collision_count = 0
     failure_reason = None
     execution_steps = 0
+    consecutive_plan_failures = 0
     stationary_plan_failures = 0
     previous_diagnostics = dict(agent.diagnostics())
 
@@ -65,9 +67,18 @@ def run_episode(
         execution_steps = step_number + 1
 
         current_diagnostics = dict(agent.diagnostics())
+        planning_called = int(current_diagnostics.get("planning_calls", 0)) > int(
+            previous_diagnostics.get("planning_calls", 0)
+        )
         planning_failed = int(current_diagnostics.get("plan_failures", 0)) > int(
             previous_diagnostics.get("plan_failures", 0)
         )
+        if planning_called:
+            if planning_failed:
+                consecutive_plan_failures += 1
+            else:
+                consecutive_plan_failures = 0
+
         stationary = float(np.linalg.norm(after - before)) <= 1e-12
         recovery_state_unchanged = all(
             current_diagnostics.get(key, 0) == previous_diagnostics.get(key, 0)
@@ -82,6 +93,14 @@ def run_episode(
             stationary_plan_failures += 1
         else:
             stationary_plan_failures = 0
+
+        if (
+            config.max_consecutive_plan_failures > 0
+            and consecutive_plan_failures
+            >= config.max_consecutive_plan_failures
+        ):
+            failure_reason = "consecutive_planning_failures"
+            break
 
         if (
             config.max_consecutive_stationary_plan_failures > 0

@@ -16,6 +16,7 @@ class EpisodeMetrics:
     execution_steps: int
     final_goal_distance: float
     planning_calls: int
+    failed_planner_calls: int
     total_planning_time_s: float
     maximum_planning_time_s: float
     replans: int

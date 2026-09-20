@@ -44,6 +44,16 @@ class BaselinePlannerTests(unittest.TestCase):
         self.assertGreater(result.expanded_nodes, 0)
         self.assertTrue(path_is_collision_free(result.path, [obstacle], 0.3))
 
+    def test_astar_reuses_rasterized_obstacles_between_replans(self):
+        obstacle = Circle(3.0, 3.0, 0.8)
+        planner = AStarPlanner()
+        first = planner.plan(START, GOAL, [obstacle], BOUNDS)
+        first_grid = planner.grid
+        second = planner.plan(np.array([0.8, 0.8]), GOAL, [obstacle], BOUNDS)
+        self.assertTrue(first.success, first.failure_reason)
+        self.assertTrue(second.success, second.failure_reason)
+        self.assertIs(planner.grid, first_grid)
+
     def test_dstar_lite_reuses_state_after_map_update(self):
         planner = DStarLitePlanner()
         first = planner.plan(START, GOAL, [], BOUNDS)

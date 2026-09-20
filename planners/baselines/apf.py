@@ -5,7 +5,7 @@ from typing import Any, Sequence
 
 import numpy as np
 
-from comparison.collision import segment_is_collision_free
+from comparison.collision import point_to_segment_distance
 from comparison.interfaces import PlanningResult
 from comparison.sensing import obstacle_center
 
@@ -43,6 +43,18 @@ class APFPlanner:
         goal = np.asarray(goal, dtype=float)
         path = [position.copy()]
         collision_checks = 0
+        inflated_obstacles = [
+            (
+                obstacle_center(obstacle),
+                float(obstacle.radius) + self.agent_radius + self.safety_margin,
+            )
+            for obstacle in known_obstacles
+        ]
+        bound_limits = None
+        if bounds is not None:
+            values = bounds() if callable(bounds) else bounds
+            xmin, xmax, ymin, ymax = map(float, values)
+            bound_limits = ([xmin, ymin], [xmax, ymax])
 
         for iteration in range(self.max_iterations):
             to_goal = goal - position
@@ -59,16 +71,10 @@ class APFPlanner:
                 )
 
             force = self.attractive_gain * to_goal
-            for obstacle in known_obstacles:
-                center = obstacle_center(obstacle)
+            for center, inflated_radius in inflated_obstacles:
                 offset = position - center
                 center_distance = float(np.linalg.norm(offset))
-                surface_clearance = (
-                    center_distance
-                    - float(obstacle.radius)
-                    - self.agent_radius
-                    - self.safety_margin
-                )
+                surface_clearance = center_distance - inflated_radius
                 if surface_clearance < self.influence_distance:
                     if center_distance <= 1e-12 or surface_clearance <= 1e-9:
                         return PlanningResult(
@@ -97,19 +103,15 @@ class APFPlanner:
 
             step = min(self.step_size, goal_distance) * force / force_norm
             candidate = position + step
-            if bounds is not None:
-                values = bounds() if callable(bounds) else bounds
-                xmin, xmax, ymin, ymax = map(float, values)
-                candidate = np.clip(candidate, [xmin, ymin], [xmax, ymax])
+            if bound_limits is not None:
+                candidate = np.clip(candidate, bound_limits[0], bound_limits[1])
 
-            collision_checks += len(known_obstacles)
-            if not segment_is_collision_free(
-                position,
-                candidate,
-                known_obstacles,
-                self.agent_radius,
-                self.safety_margin,
-            ):
+            collision_checks += len(inflated_obstacles)
+            blocked = any(
+                point_to_segment_distance(center, position, candidate) < inflated_radius
+                for center, inflated_radius in inflated_obstacles
+            )
+            if blocked:
                 return PlanningResult(
                     False,
                     path=path,
@@ -119,7 +121,8 @@ class APFPlanner:
                     diagnostics={"iterations": iteration},
                 )
 
-            if np.linalg.norm(candidate - position) <= 1e-12:
+            delta = candidate - position
+            if float(np.dot(delta, delta)) <= 1e-24:
                 return PlanningResult(
                     False,
                     path=path,

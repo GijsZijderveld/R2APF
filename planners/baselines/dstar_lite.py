@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import heapq
 import itertools
+import math
 import time
 from typing import Any, Sequence
 
@@ -9,6 +10,9 @@ import numpy as np
 
 from comparison.interfaces import PlanningResult
 from .grid import Cell, GridMap, cells_to_path, normalize_bounds, octile_distance
+
+INF = math.inf
+INF_KEY = (INF, INF)
 
 
 class DStarLitePlanner:
@@ -49,7 +53,7 @@ class DStarLitePlanner:
         self.updated = 0
 
     def _value(self, table: dict[Cell, float], cell: Cell) -> float:
-        return table.get(cell, float("inf"))
+        return table.get(cell, INF)
 
     def _heuristic(self, a: Cell, b: Cell) -> float:
         assert self.grid is not None
@@ -73,7 +77,7 @@ class DStarLitePlanner:
             if self.queued_keys.get(cell) == (k1, k2):
                 return (k1, k2), cell
             heapq.heappop(self.queue)
-        return (float("inf"), float("inf")), None
+        return INF_KEY, None
 
     def _pop(self) -> tuple[tuple[float, float], Cell]:
         while self.queue:
@@ -91,11 +95,13 @@ class DStarLitePlanner:
         assert self.goal is not None
         self.updated += 1
         if cell != self.goal:
-            values = [
-                cost + self._value(self.g, successor)
-                for successor, cost in self._successors(cell)
-            ]
-            self.rhs[cell] = min(values, default=float("inf"))
+            self.rhs[cell] = min(
+                (
+                    cost + self._value(self.g, successor)
+                    for successor, cost in self._successors(cell)
+                ),
+                default=INF,
+            )
         self._remove(cell)
         if self._value(self.g, cell) != self._value(self.rhs, cell):
             self._push(cell, start)
@@ -105,7 +111,7 @@ class DStarLitePlanner:
             top_key, _ = self._top()
             start_key = self._key(start, start)
             queue_can_affect_start = (
-                top_key != (float("inf"), float("inf"))
+                top_key != INF_KEY
                 and top_key[0] <= start_key[0] + 1e-12
             )
             if not (
@@ -113,7 +119,7 @@ class DStarLitePlanner:
                 or self._value(self.rhs, start) != self._value(self.g, start)
             ):
                 return
-            if top_key == (float("inf"), float("inf")):
+            if top_key == INF_KEY:
                 return
             old_key, cell = self._pop()
             new_key = self._key(cell, start)
@@ -125,7 +131,7 @@ class DStarLitePlanner:
                 for predecessor, _ in self._successors(cell):
                     self._update_vertex(predecessor, start)
             else:
-                self.g[cell] = float("inf")
+                self.g[cell] = INF
                 self.expanded += 1
                 self._update_vertex(cell, start)
                 for predecessor, _ in self._successors(cell):
@@ -217,7 +223,7 @@ class DStarLitePlanner:
         call_updated = self.updated - updated_before
         search_time = time.perf_counter() - search_started
 
-        if self._value(self.g, start_cell) == float("inf"):
+        if self._value(self.g, start_cell) == INF:
             return PlanningResult(
                 False,
                 planning_time_s=time.perf_counter() - started,
@@ -240,7 +246,7 @@ class DStarLitePlanner:
                 (cost + self._value(self.g, neighbor), neighbor)
                 for neighbor, cost in self._successors(current)
                 if neighbor not in visited
-                and self._value(self.g, neighbor) < float("inf")
+                and self._value(self.g, neighbor) < INF
                 and self._value(self.g, neighbor) < self._value(self.g, current)
             ]
             if not choices:

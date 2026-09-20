@@ -33,6 +33,9 @@ class RAPFGlobalPlanner:
         self.total_virtual_obstacles_created = 0
         self.total_plan_calls = 0
         self.total_plan_failures = 0
+        self._bacteria_angles = (
+            2.0 * np.pi * np.arange(int(self.p['N_B'])) / int(self.p['N_B'])
+        )
 
     def plan(self, start_pos, goal_pos, real_obstacles, *, virtual_obstacles=None) -> dict:
         """
@@ -65,7 +68,7 @@ class RAPFGlobalPlanner:
         while not path_found and restart_count < self.p['MAX_RESTARTS']:
             restart_count += 1
             sim_q = sim_path[-1].copy()
-            current_obstacles = real_obstacles + active_vos
+            current_obstacles = self._prepare_obstacles(real_obstacles + active_vos)
             inner_success = False
             break_reason = "max_steps"
 
@@ -137,6 +140,18 @@ class RAPFGlobalPlanner:
             "total_plan_failures": self.total_plan_failures,
         }
 
+    @staticmethod
+    def _prepare_obstacles(obstacles):
+        """Extract immutable circle geometry once per planning restart."""
+        prepared = []
+        for obstacle in obstacles:
+            if hasattr(obstacle, "x") and hasattr(obstacle, "y"):
+                center = np.array([obstacle.x, obstacle.y], dtype=float)
+            else:
+                center = np.asarray(obstacle.center, dtype=float)
+            prepared.append((center, float(obstacle.radius)))
+        return prepared
+
     def _compute_internal_step(self, pos, goal, obstacles):
         j_robot = self._compute_total_potential(pos, goal, obstacles)
         bacteria_points = self._generate_bacteria_points(pos, goal)
@@ -159,53 +174,32 @@ class RAPFGlobalPlanner:
         return best_point, is_stuck
 
     def _generate_bacteria_points(self, center_pos, goal_pos):
-        points = []
-        n_b = self.p['N_B']
-        rho_b = self.p['RHO_B']
-
-        # Ensure one bacterium is aligned with the goal direction
         vector_to_goal = goal_pos - center_pos
         base_angle = np.arctan2(vector_to_goal[1], vector_to_goal[0])
-
-        for i in range(n_b):
-            angle = base_angle + (2 * np.pi * i / n_b)
-            b_x = center_pos[0] + rho_b * np.cos(angle)
-            b_y = center_pos[1] + rho_b * np.sin(angle)
-            points.append(np.array([b_x, b_y]))
-
-        return points
-
+        angles = base_angle + self._bacteria_angles
+        return np.column_stack(
+            (
+                center_pos[0] + self.p['RHO_B'] * np.cos(angles),
+                center_pos[1] + self.p['RHO_B'] * np.sin(angles),
+            )
+        )
     def _compute_total_potential(self, pos, target, obstacles):
-        # Gaussian attractive potential
-        d_t_sq = np.linalg.norm(pos - target) ** 2
+        target_delta = pos - target
+        d_t_sq = float(np.dot(target_delta, target_delta))
         j_a = -self.p['ALPHA_A'] * np.exp(-self.p['MU_A'] * d_t_sq)
 
-        # Gaussian repulsive potential
-        j_r = 0
-        for o in obstacles:
-            if hasattr(o, 'distance_to_surface'):
-                dist_surface = o.distance_to_surface(pos)
-            else:
-                o_pos = np.array([o.x, o.y]) if hasattr(o, 'x') else o.center
-                dist_surface = np.linalg.norm(pos - o_pos) - o.radius
-
+        j_r = 0.0
+        for center, radius in obstacles:
+            dist_surface = float(np.linalg.norm(pos - center)) - radius
             if dist_surface < self.p['RHO_L']:
                 j_r += 1e6 * (1.0 / max(dist_surface, 1e-6))
             elif dist_surface < self.p['RHO_U']:
                 d_calc = max(0.0, dist_surface)
                 j_r += self.p['ALPHA_O'] * np.exp(-self.p['MU_O'] * (d_calc ** 2))
-
         return j_a + j_r
-
     def _is_collision(self, check_pos, obstacles):
         safety_radius = self.p['RHO_L']
-        for o in obstacles:
-            if hasattr(o, 'distance_to_surface'):
-                dist_surface = o.distance_to_surface(check_pos)
-            else:
-                o_pos = np.array([o.x, o.y]) if hasattr(o, 'x') else o.center
-                dist_surface = np.linalg.norm(check_pos - o_pos) - o.radius
-
-            if dist_surface < safety_radius:
+        for center, radius in obstacles:
+            if float(np.linalg.norm(check_pos - center)) - radius < safety_radius:
                 return True
         return False

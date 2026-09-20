@@ -11,6 +11,11 @@ from comparison.sensing import obstacle_center
 Cell = Tuple[int, int]
 Edge = Tuple[Cell, Cell]
 Circle = Tuple[float, float, float]
+SQRT2 = math.sqrt(2.0)
+CARDINAL_DIRECTIONS = ((1, 0), (-1, 0), (0, 1), (0, -1))
+DIAGONAL_DIRECTIONS = ((1, 1), (1, -1), (-1, 1), (-1, -1))
+EDGE_DIRECTIONS_4 = ((1, 0), (0, 1))
+EDGE_DIRECTIONS_8 = EDGE_DIRECTIONS_4 + ((1, 1), (1, -1))
 
 
 def canonical_edge(a: Cell, b: Cell) -> Edge:
@@ -18,16 +23,18 @@ def canonical_edge(a: Cell, b: Cell) -> Edge:
 
 
 def segment_intersects_circle(start: np.ndarray, end: np.ndarray, circle: Circle) -> bool:
-    center = np.array(circle[:2], dtype=float)
-    segment = end - start
-    denominator = float(np.dot(segment, segment))
+    cx, cy, radius = circle
+    sx, sy = float(start[0]), float(start[1])
+    dx, dy = float(end[0]) - sx, float(end[1]) - sy
+    denominator = dx * dx + dy * dy
     if denominator <= 1e-12:
-        distance = float(np.linalg.norm(center - start))
+        offset_x, offset_y = cx - sx, cy - sy
     else:
-        fraction = float(np.dot(center - start, segment) / denominator)
+        fraction = ((cx - sx) * dx + (cy - sy) * dy) / denominator
         fraction = max(0.0, min(1.0, fraction))
-        distance = float(np.linalg.norm(center - (start + fraction * segment)))
-    return distance < circle[2]
+        offset_x = cx - (sx + fraction * dx)
+        offset_y = cy - (sy + fraction * dy)
+    return offset_x * offset_x + offset_y * offset_y < radius * radius
 
 
 @dataclass(frozen=True)
@@ -122,9 +129,17 @@ class GridMap:
         ix1 = min(self.width - 1, int(math.floor((x + radius - xmin) / self.resolution)))
         iy0 = max(0, int(math.floor((y - radius - ymin) / self.resolution)))
         iy1 = min(self.height - 1, int(math.floor((y + radius - ymin) / self.resolution)))
-        center = np.array([x, y], dtype=float)
-        return {(ix, iy) for ix in range(ix0, ix1 + 1) for iy in range(iy0, iy1 + 1)
-                if np.linalg.norm(self.cell_to_world((ix, iy)) - center) < radius}
+        radius_sq = radius * radius
+        return {
+            (ix, iy)
+            for ix in range(ix0, ix1 + 1)
+            for iy in range(iy0, iy1 + 1)
+            if (
+                (xmin + (ix + 0.5) * self.resolution - x) ** 2
+                + (ymin + (iy + 0.5) * self.resolution - y) ** 2
+                < radius_sq
+            )
+        }
 
     def cells_affected_by_circle(self, circle: Circle, padding_cells: int = 2) -> set[Cell]:
         x, y, radius = circle
@@ -138,9 +153,7 @@ class GridMap:
 
     def edges_blocked_by_circle(self, circle: Circle) -> set[Edge]:
         blocked: set[Edge] = set()
-        directions = [(1, 0), (0, 1)]
-        if self.connectivity == 8:
-            directions += [(1, 1), (1, -1)]
+        directions = EDGE_DIRECTIONS_8 if self.connectivity == 8 else EDGE_DIRECTIONS_4
         for cell in self.cells_affected_by_circle(circle):
             for dx, dy in directions:
                 neighbor = (cell[0] + dx, cell[1] + dy)
@@ -156,10 +169,11 @@ class GridMap:
     def neighbors(self, cell: Cell) -> Iterator[tuple[Cell, float]]:
         if not self.is_free(cell):
             return
-        directions = [(1, 0), (-1, 0), (0, 1), (0, -1)]
         if self.connectivity == 8:
-            directions += [(1, 1), (1, -1), (-1, 1), (-1, -1)]
-        elif self.connectivity != 4:
+            directions = CARDINAL_DIRECTIONS + DIAGONAL_DIRECTIONS
+        elif self.connectivity == 4:
+            directions = CARDINAL_DIRECTIONS
+        else:
             raise ValueError("connectivity must be 4 or 8")
         for dx, dy in directions:
             neighbor = (cell[0] + dx, cell[1] + dy)
@@ -170,7 +184,7 @@ class GridMap:
                     continue
             if not self.edge_is_collision_free(cell, neighbor):
                 continue
-            yield neighbor, self.resolution * (math.sqrt(2.0) if dx and dy else 1.0)
+            yield neighbor, self.resolution * (SQRT2 if dx and dy else 1.0)
 
 
 def normalize_bounds(bounds: Any) -> tuple[float, float, float, float]:
@@ -187,7 +201,7 @@ def normalize_bounds(bounds: Any) -> tuple[float, float, float, float]:
 
 def octile_distance(a: Cell, b: Cell, resolution: float) -> float:
     dx, dy = abs(a[0] - b[0]), abs(a[1] - b[1])
-    return resolution * (max(dx, dy) + (math.sqrt(2.0) - 1.0) * min(dx, dy))
+    return resolution * (max(dx, dy) + (SQRT2 - 1.0) * min(dx, dy))
 
 
 def cells_to_path(grid: GridMap, cells: list[Cell], start: np.ndarray,

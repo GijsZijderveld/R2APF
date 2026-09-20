@@ -10,5 +10,7 @@
   "sensing_range": 3.0,
   "sensing_pad": 0.05,
   "lookahead_segments": 8,
-  "stop_on_collision": false
+  "stop_on_collision": false,
+  "max_consecutive_stationary_plan_failures": 3,
+  "max_total_planning_time_s": null
 }

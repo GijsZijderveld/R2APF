@@ -4,7 +4,7 @@ import csv
 import random
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Iterable, List
+from typing import Any, Callable, Iterable, List, Optional
 
 import numpy as np
 
@@ -20,6 +20,8 @@ class BenchmarkConfig:
     max_steps: int = 1000
     agent_radius: float = 0.30
     stop_on_collision: bool = False
+    max_consecutive_stationary_plan_failures: int = 3
+    max_total_planning_time_s: Optional[float] = None
 
 
 def run_episode(
@@ -39,6 +41,8 @@ def run_episode(
     collision_count = 0
     failure_reason = None
     execution_steps = 0
+    stationary_plan_failures = 0
+    previous_diagnostics = dict(agent.diagnostics())
 
     for step_number in range(config.max_steps):
         before = np.asarray(agent.position, dtype=float).copy()
@@ -59,6 +63,43 @@ def run_episode(
         after = np.asarray(agent.position, dtype=float)
         path_length += float(np.linalg.norm(after - before))
         execution_steps = step_number + 1
+
+        current_diagnostics = dict(agent.diagnostics())
+        planning_failed = int(current_diagnostics.get("plan_failures", 0)) > int(
+            previous_diagnostics.get("plan_failures", 0)
+        )
+        stationary = float(np.linalg.norm(after - before)) <= 1e-12
+        recovery_state_unchanged = all(
+            current_diagnostics.get(key, 0) == previous_diagnostics.get(key, 0)
+            for key in (
+                "known_obstacles",
+                "virtual_obstacles_created",
+                "max_active_virtual_obstacles",
+                "backtrack_tries",
+            )
+        )
+        if planning_failed and stationary and recovery_state_unchanged:
+            stationary_plan_failures += 1
+        else:
+            stationary_plan_failures = 0
+
+        if (
+            config.max_consecutive_stationary_plan_failures > 0
+            and stationary_plan_failures
+            >= config.max_consecutive_stationary_plan_failures
+        ):
+            failure_reason = "repeated_stationary_planning_failure"
+            break
+
+        if (
+            config.max_total_planning_time_s is not None
+            and float(current_diagnostics.get("planning_time_total_s", 0.0))
+            >= config.max_total_planning_time_s
+        ):
+            failure_reason = "planning_time_budget"
+            break
+
+        previous_diagnostics = current_diagnostics
 
         collided = position_is_in_collision(
             after,

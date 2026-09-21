@@ -15,3 +15,15 @@ python -m scripts.run_comparison \
 
 The default full configuration covers five scenarios and 500 seeds per
 scenario. Do not treat smoke-test results as publication results.
+
+Summarize the combined raw results with:
+
+```bash
+python scripts/summarize_comparison.py \
+  experiments/comparisons/results.csv
+```
+
+This writes `summary_overall.csv`, `summary_by_scenario.csv`, and
+`failure_reasons.csv` under `experiments/comparisons/summary/`. Executed path
+length is reported both across all episodes and across successful episodes
+only. Unsupported planner-specific diagnostics remain blank.

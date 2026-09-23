@@ -57,7 +57,7 @@ def main() -> None:
     parser.add_argument("--episodes", type=int, default=None)
     parser.add_argument(
         "--output",
-        default="experiments/comparisons/results.csv",
+        default="experiments/comparisons/results_22092026.csv",
     )
     args = parser.parse_args()
 
@@ -85,6 +85,7 @@ def main() -> None:
         speed_limit=float(campaign["speed_limit"]),
         max_steps=int(campaign["max_steps"]),
         agent_radius=float(campaign["agent_radius"]),
+        collision_radius=float(campaign.get("collision_radius", 0.1)),
         stop_on_collision=bool(campaign["stop_on_collision"]),
         max_consecutive_plan_failures=int(
             campaign.get("max_consecutive_plan_failures", 0)
@@ -92,6 +93,7 @@ def main() -> None:
         max_consecutive_stationary_plan_failures=int(
             campaign.get("max_consecutive_stationary_plan_failures", 0)
         ),
+        apf_stationary_steps=int(campaign.get("apf_stationary_steps", 100)),
         max_total_planning_time_s=(
             None
             if campaign.get("max_total_planning_time_s") is None

@@ -205,7 +205,7 @@ def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "input",
         nargs="?",
-        default="experiments/comparisons/results.csv",
+        default="experiments/comparisons/results_22092026.csv",
         help="Raw CSV produced by scripts/run_comparison.py.",
     )
     parser.add_argument(
@@ -222,11 +222,11 @@ def main(argv: Iterable[str] | None = None) -> None:
     output_dir = Path(args.output_dir)
 
     outputs = {
-        output_dir / "summary_overall.csv": summarize(results, ["planner"]),
-        output_dir / "summary_by_scenario.csv": summarize(
+        output_dir / "summary_22092026_overall.csv": summarize(results, ["planner"]),
+        output_dir / "summary_22092026_by_scenario.csv": summarize(
             results, ["planner", "scenario"]
         ),
-        output_dir / "failure_reasons.csv": summarize_failures(
+        output_dir / "failure_reasons_22092026.csv": summarize_failures(
             results, ["planner", "scenario"]
         ),
     }

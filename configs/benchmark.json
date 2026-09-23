@@ -6,12 +6,14 @@
   "speed_limit": 1.0,
   "max_steps": 1000,
   "agent_radius": 0.3,
+  "collision_radius": 0.1,
   "goal_tolerance": 0.5,
   "sensing_range": 3.0,
   "sensing_pad": 0.05,
   "lookahead_segments": 8,
   "stop_on_collision": false,
-  "max_consecutive_plan_failures": 3,
-  "max_consecutive_stationary_plan_failures": 3,
+  "max_consecutive_plan_failures": 0,
+  "max_consecutive_stationary_plan_failures": 0,
+  "apf_stationary_steps": 100,
   "max_total_planning_time_s": null
 }

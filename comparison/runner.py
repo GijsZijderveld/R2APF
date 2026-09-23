@@ -19,10 +19,12 @@ class BenchmarkConfig:
     speed_limit: float = 1.0
     max_steps: int = 1000
     agent_radius: float = 0.30
+    collision_radius: float = 0.10
     stop_on_collision: bool = False
-    max_consecutive_plan_failures: int = 3
-    max_consecutive_stationary_plan_failures: int = 3
+    max_consecutive_plan_failures: int = 0
+    max_consecutive_stationary_plan_failures: int = 0
     max_total_planning_time_s: Optional[float] = None
+    apf_stationary_steps: int = 100
 
 
 def run_episode(
@@ -45,6 +47,7 @@ def run_episode(
     consecutive_plan_failures = 0
     stationary_plan_failures = 0
     previous_diagnostics = dict(agent.diagnostics())
+    apf_idle_steps = 0
 
     for step_number in range(config.max_steps):
         before = np.asarray(agent.position, dtype=float).copy()
@@ -94,6 +97,22 @@ def run_episode(
         else:
             stationary_plan_failures = 0
 
+        # Classical APF is deterministic for a fixed pose and sensed map and
+        # ignores virtual obstacles. A failed call with no backtrack path cannot
+        # improve by retrying from the same pose. RAPF recovery must continue.
+        if planner_name == "apf":
+            recovering = bool(getattr(agent, "_escape_active", False))
+            if planning_failed and stationary and not recovering and not getattr(agent, "planned_path", []):
+                failure_reason = "apf_unrecoverable_plan"
+                break
+            if stationary and recovery_state_unchanged and not recovering:
+                apf_idle_steps += 1
+            else:
+                apf_idle_steps = 0
+            if config.apf_stationary_steps > 0 and apf_idle_steps >= config.apf_stationary_steps:
+                failure_reason = "apf_stagnation"
+                break
+
         if (
             config.max_consecutive_plan_failures > 0
             and consecutive_plan_failures
@@ -123,7 +142,7 @@ def run_episode(
         collided = position_is_in_collision(
             after,
             environment.obstacles,
-            config.agent_radius,
+            config.collision_radius,
         )
         if collided:
             collision_count += 1

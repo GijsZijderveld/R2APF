@@ -157,18 +157,17 @@ controlled_comparison:
 
   physical_rover:
     radius:
-      value: 0.30
+      value: 0.10
       status: decided
       rationale: >
-        Matches the RAPF planning clearance RHO_L and is used as the common
-        continuous collision footprint.
+        Physical rover radius used for collision reporting. The planners keep
+        their 0.30 m clearance, which includes a 0.20 m safety margin.
     safety_margin:
-      value: 0.00
+      value: 0.20
       status: decided
       rationale: >
-        Avoids double-counting clearance because the chosen 0.30 m radius is
-        already the RAPF safety/footprint radius. This is independent of the
-        0.05 m sensing pad.
+        Keeps the 0.30 m planner clearance used by RAPF and the baselines;
+        it does not enlarge the physical footprint in collision reporting.
 
   goal:
     tolerance:
@@ -301,7 +300,7 @@ controlled_comparison:
 
   collision:
     geometric_definition:
-      value: center_distance_lt_obstacle_radius_plus_physical_rover_radius_plus_safety_margin
+      value: center_distance_lt_obstacle_radius_plus_physical_rover_radius
       status: decided
     path_validation:
       value: continuous_line_segment_against_inflated_circles

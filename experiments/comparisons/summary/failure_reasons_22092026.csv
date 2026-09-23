@@ -1,0 +1,4 @@
+planner,scenario,failure_reason,count,episode_rate
+r2apf,C,max_steps,1,0.002
+r2apf,D,max_steps,1,0.002
+r2apf,E,max_steps,2,0.004

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import sys
 from pathlib import Path
@@ -38,6 +39,28 @@ def interleaved_jobs(planner_names, scenarios, seeds):
         for seed in seeds:
             for planner_name in planner_names:
                 yield planner_name, scenario, seed
+
+
+def load_existing_results(path: str | Path):
+    """Keep existing CSV rows and index completed planner/scenario/seed jobs."""
+    path = Path(path)
+    if not path.exists():
+        return [], set()
+    with path.open("r", newline="", encoding="utf-8") as handle:
+        reader = csv.DictReader(handle)
+        if reader.fieldnames is None or not {"planner", "scenario", "seed"}.issubset(reader.fieldnames):
+            raise ValueError(f"{path} must have planner, scenario, and seed columns")
+        rows = list(reader)
+    completed = set()
+    for row in rows:
+        try:
+            key = (row["planner"], row["scenario"], int(row["seed"]))
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"Invalid seed in {path}: {row['seed']!r}") from exc
+        if not key[0] or not key[1] or key in completed:
+            raise ValueError(f"Invalid or duplicate benchmark case in {path}: {key}")
+        completed.add(key)
+    return rows, completed
 
 
 def main() -> None:
@@ -127,17 +150,23 @@ def main() -> None:
             agent_config = shared_agent_config
         planner_setups[planner_name] = (planner_config, agent_config)
 
-    all_results = []
+    try:
+        all_results, completed = load_existing_results(args.output)
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
+    print(f"Loaded {len(all_results)} existing rows from {args.output}; completed jobs will be skipped")
     completed_cases = 0
     total_cases = len(campaign["scenarios"]) * len(seeds)
+    new_rows_in_case = 0
     for planner_name, scenario, seed in interleaved_jobs(
         planner_names,
         campaign["scenarios"],
         seeds,
     ):
-        planner_config, agent_config = planner_setups[planner_name]
-        all_results.append(
-            run_episode(
+        key = (planner_name, scenario, seed)
+        if key not in completed:
+            planner_config, agent_config = planner_setups[planner_name]
+            all_results.append(run_episode(
                 build_agent(
                     planner_name,
                     planner_config=planner_config,
@@ -148,19 +177,23 @@ def main() -> None:
                 scenario=scenario,
                 seed=seed,
                 config=runner_config,
-            )
-        )
+            ))
+            completed.add(key)
+            new_rows_in_case += 1
 
-        # A checkpoint always contains the same number of completed cases for
-        # every selected planner.
+        # Checkpoint after each scenario/seed case, including partially completed cases.
         if planner_name == planner_names[-1]:
             completed_cases += 1
-            write_results(all_results, args.output)
-            print(
-                f"Completed case {completed_cases}/{total_cases}: "
-                f"scenario={scenario}, seed={seed}, planners={len(planner_names)}; "
-                f"checkpointed {len(all_results)} rows to {args.output}"
-            )
+            if new_rows_in_case:
+                write_results(all_results, args.output)
+                print(
+                    f"Completed case {completed_cases}/{total_cases}: "
+                    f"scenario={scenario}, seed={seed}; "
+                    f"added {new_rows_in_case} rows, checkpointed {len(all_results)} "
+                    f"rows to {args.output}"
+                )
+            new_rows_in_case = 0
+    print(f"Done: {len(all_results)} rows in {args.output}; skipped existing jobs")
 
 
 if __name__ == "__main__":

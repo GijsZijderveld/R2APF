@@ -233,7 +233,7 @@ def write_results(
     results: Iterable[EpisodeMetrics],
     output_path: str | Path,
 ) -> None:
-    rows = [result.to_dict() for result in results]
+    rows = [result if isinstance(result, dict) else result.to_dict() for result in results]
     if not rows:
         raise ValueError("No results to write.")
 

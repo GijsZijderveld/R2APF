@@ -1,4 +1,7 @@
 import unittest
+import tempfile
+from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 
@@ -10,7 +13,7 @@ from comparison.runner import BenchmarkConfig, run_episode
 from planners.rapf_global_planner import RAPFGlobalPlanner as R2APFPlanner
 from planners.rapf_paper_planner import RAPFGlobalPlanner as RAPFPaperPlanner
 from simulation.env.runtime import CircularObstacle
-from scripts.run_comparison import interleaved_jobs
+from scripts.run_comparison import interleaved_jobs, load_existing_results, main
 
 
 class EmptyEnvironment:
@@ -89,6 +92,51 @@ class FailureRecoveryAgent:
 
 
 class ComparisonContractTests(unittest.TestCase):
+    def test_resume_preserves_rows_and_skips_only_completed_jobs(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "results.csv"
+            output.write_text(
+                "planner,scenario,seed,custom_metric\n"
+                "r2apf,A,5000,kept\n"
+                "astar,A,5000,also_kept\n",
+                encoding="utf-8",
+            )
+            rows, completed = load_existing_results(output)
+            self.assertEqual(rows[0]["custom_metric"], "kept")
+            self.assertEqual(completed, {("r2apf", "A", 5000), ("astar", "A", 5000)})
+            self.assertNotIn(("dstar_lite", "A", 5000), completed)
+
+    def test_resume_rejects_duplicate_jobs(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "results.csv"
+            output.write_text(
+                "planner,scenario,seed\nr2apf,A,5000\nr2apf,A,5000\n",
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "duplicate"):
+                load_existing_results(output)
+
+    def test_resume_all_preserves_existing_r2apf_results(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "results.csv"
+            output.write_text("planner,scenario,seed,custom_metric\nr2apf,A,5000,kept\n", encoding="utf-8")
+            campaign = Path(directory) / "benchmark.json"
+            campaign.write_text(
+                '{"scenarios":["A"],"seed_start":5000,"episodes_per_scenario":1,'
+                '"dt":0.1,"speed_limit":1.0,"max_steps":20,"agent_radius":0.3,'
+                '"sensing_range":3.0,"sensing_pad":0.05,"goal_tolerance":0.5,'
+                '"lookahead_segments":8,"stop_on_collision":false}',
+                encoding="utf-8",
+            )
+            with patch("sys.argv", ["run_comparison", "--planner", "all", "--benchmark-config", str(campaign), "--output", str(output)]), patch("scripts.run_comparison.environment_factory", return_value=None), patch("scripts.run_comparison.build_agent", return_value=None), patch("scripts.run_comparison.run_episode") as run:
+                run.side_effect = lambda agent, environment, *, planner_name, scenario, seed, config: {"planner": planner_name, "scenario": scenario, "seed": seed}
+                main()
+            rows, completed = load_existing_results(output)
+            self.assertEqual(len(rows), len(available_planners()))
+            self.assertEqual(rows[0]["custom_metric"], "kept")
+            self.assertEqual(run.call_count, len(available_planners()) - 1)
+            self.assertEqual(len(completed), len(available_planners()))
+
     def test_campaign_interleaves_planners_per_episode_case(self):
         jobs = list(
             interleaved_jobs(

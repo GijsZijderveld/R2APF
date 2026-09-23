@@ -16,6 +16,18 @@ python -m scripts.run_comparison \
 The default full configuration covers five scenarios and 500 seeds per
 scenario. Do not treat smoke-test results as publication results.
 
+To finish a partial campaign, point `--output` at its existing CSV and select
+all planners:
+
+```bash
+python -m scripts.run_comparison --planner all \
+  --output experiments/comparisons/results.csv
+```
+
+The runner skips each planner/scenario/seed combination already present in
+that CSV and adds missing rows. Use the same campaign and planner settings
+as the existing rows. The CSV does not record the settings used for each row.
+
 Summarize the combined raw results with:
 
 ```bash

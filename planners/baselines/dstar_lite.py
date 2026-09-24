@@ -61,7 +61,10 @@ class DStarLitePlanner:
 
     def _key(self, cell: Cell, start: Cell) -> tuple[float, float]:
         best = min(self._value(self.g, cell), self._value(self.rhs, cell))
-        return best + self._heuristic(start, cell) + self.km, best
+        # Grid edge costs can reach the same theoretical value through different
+        # summation orders. Quantize the primary key so the heap's ordering and
+        # the shortest-path termination comparison agree on these ties.
+        return round(best + self._heuristic(start, cell) + self.km, 10), best
 
     def _push(self, cell: Cell, start: Cell) -> None:
         key = self._key(cell, start)
@@ -110,10 +113,7 @@ class DStarLitePlanner:
         while True:
             top_key, _ = self._top()
             start_key = self._key(start, start)
-            queue_can_affect_start = (
-                top_key != INF_KEY
-                and top_key[0] <= start_key[0] + 1e-12
-            )
+            queue_can_affect_start = top_key < start_key
             if not (
                 queue_can_affect_start
                 or self._value(self.rhs, start) != self._value(self.g, start)

@@ -1,0 +1,8 @@
+collision_count,executed_path_length,execution_steps,failed_planner_calls,failure_reason,final_goal_distance,maximum_planning_time_s,planner,planner_artificial_obstacles_inserted,planner_backtrack_failed,planner_backtrack_tries,planner_blocked_steps,planner_max_active_virtual_obstacles,planner_path_reuse_ratio,planner_planning_effort,planner_recovery_events,planner_repair_events,planner_selection_changes_due_to_midpoint_checking,planner_unique_midpoint_rejections,planner_virtual_obstacles_created,planning_calls,replans,scenario,seed,sensed_obstacle_ratio,success,total_planning_time_s
+0,37.69999999999998,377,0,,0.45191682081931944,0.07983964399954857,r2apf,0,False,0,0,0,,158.0,0,0,0,2,0,3,3,A,5000,0.4375,True,0.10095430899946223
+0,41.00000000000012,410,0,,0.429794120959644,0.1472421199996461,r2apf,0,False,0,0,0,,404.0,0,0,4,17,0,10,10,A,5001,0.6125,True,0.8393217250013549
+0,37.30000000000023,373,0,,0.4915906083443214,0.11969184600002336,r2apf,1,False,0,0,1,0.2,235.0,1,1,1,5,1,6,6,A,5002,0.475,True,0.5154925520000688
+0,45.95076008046995,460,2,,0.40105267804900646,0.15687132000039128,r2apf,3,False,2,0,3,0.14285714285714285,490.0,3,1,7,21,3,14,14,A,5003,0.4875,True,1.1991318989976207
+0,40.50000000000004,405,0,,0.4385604198322339,0.11187368700029765,r2apf,0,False,0,0,0,,430.0,0,0,1,9,0,9,9,A,5004,0.45,True,0.5409986710019439
+2,43.50000000000004,435,1,,0.4422973278106106,0.15429529100038053,r2apf,3,False,1,0,3,0.25,612.0,3,2,11,22,3,15,15,A,5005,0.6,True,1.450060662999931
+0,38.40000000000014,384,0,,0.4170820891787466,0.1535868399996616,r2apf,0,False,0,0,0,,349.0,0,0,2,9,0,9,9,A,5006,0.4875,True,0.5662273679999998

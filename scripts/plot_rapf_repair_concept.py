@@ -131,23 +131,15 @@ def make_routes(obstacles, start, stuck, goal, horizon, radius, resolution, boun
     suffix_obstacles = [*static_clear, virtual]
     suffix_planner = AStarPlanner(resolution=resolution, agent_radius=0.0)
 
-    # Baseline RAPF restarts at p_stuck. Since p_stuck is at the artificial
-    # obstacle centre, show its collision-free escape to just beyond H, then
-    # route the rest around H and the real obstacles.
-    escape_path = None
-    escape_radius = horizon + max(0.2, resolution * 2.0)
-    for angle in np.linspace(0.0, 2.0 * np.pi, 48, endpoint=False):
-        escape = stuck + escape_radius * np.array([np.cos(angle), np.sin(angle)])
-        if not segment_clear(stuck, escape, static_clear):
-            continue
-        result = suffix_planner.plan(escape, goal, suffix_obstacles, bounds)
-        if result.success:
-            suffix = shortcut_path(result.path, suffix_obstacles)
-            validate_path(suffix, suffix_obstacles, "RAPF replanned route outside H")
-            escape_path = np.vstack((stuck, suffix))
-            break
-    if escape_path is None:
-        raise RuntimeError("Could not find a collision-free RAPF escape and replanned route")
+    # Illustrate a full restart from the original route's start waypoint.
+    # The new route avoids the inserted artificial obstacle and real obstacles.
+    restart_result = suffix_planner.plan(start, goal, suffix_obstacles, bounds)
+    if not restart_result.success:
+        raise RuntimeError("Could not find a collision-free full-restart route: "
+                           f"{restart_result.failure_reason}")
+    restart_path = shortcut_path(restart_result.path, suffix_obstacles)
+    validate_path(restart_path, suffix_obstacles,
+                  "RAPF full-restart route outside H")
 
     # R2APF backtracks along the common initial path to its last waypoint
     # outside H, then generates a new suffix from that anchor.
@@ -157,7 +149,7 @@ def make_routes(obstacles, start, stuck, goal, horizon, radius, resolution, boun
                            f"{repair_result.failure_reason}")
     repaired_suffix = shortcut_path(repair_result.path, suffix_obstacles)
     validate_path(repaired_suffix, suffix_obstacles, "R2APF repaired route outside H")
-    return initial, anchor_index, anchor, anchor_distance, escape_path, repaired_suffix
+    return initial, anchor_index, anchor, anchor_distance, restart_path, repaired_suffix
 
 
 def draw_arrow(ax, points, color, index=None):
@@ -253,7 +245,7 @@ def create_figure(scenario="C", seed=5073, width_mm=210.0, font_size=10.0,
                     markeredgecolor="black", markeredgewidth=0.5,
                     markersize=5.5, zorder=11)
 
-        # RAPF clears the existing path and starts the new path at p_stuck.
+        # RAPF clears the old path and recomputes from its original start.
         axes[0].plot(restart_path[:, 0], restart_path[:, 1],
                      color=ROUTE_COLOR, linewidth=2.3, zorder=10)
         draw_arrow(axes[0], restart_path, ROUTE_COLOR, index=2)

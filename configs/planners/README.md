@@ -23,9 +23,10 @@ For RRT*, `max_samples` is the maximum number of attempted samples in one
 planner call. `optimization_samples` is the number of additional attempts after
 the first collision-free goal connection, limited by `max_samples`. Set it to
 zero to recover first-solution stopping, or to `null` to use the entire sample
-budget even after reaching the goal. The configured 300 additional samples is
-a development setting, not a frozen publication budget. A sample-budget
-sensitivity study should report both executed route length and cumulative
-planning time before selecting the final setting. Existing comparison CSVs
+budget even after reaching the goal. The configured 600 additional samples
+were selected after a preliminary sample-budget sensitivity study. Calls are
+still capped at `max_samples`, so fewer than 600 attempts remain when the
+first path appears late. Report both executed route length and cumulative
+planning time when assessing this setting. Existing comparison CSVs
 were produced with the old first-solution implementation and cannot be used
 as results for this version of RRT*.

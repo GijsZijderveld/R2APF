@@ -108,7 +108,7 @@ class BaselinePlannerTests(unittest.TestCase):
         goal = np.array([28.0, 28.0])
         bounds = (0.0, 30.0, 0.0, 30.0)
         first = RRTStarPlanner(max_samples=2000, optimization_samples=0)
-        improved = RRTStarPlanner(max_samples=2000, optimization_samples=300)
+        improved = RRTStarPlanner(max_samples=2000, optimization_samples=600)
         first.reset(5000)
         improved.reset(5000)
         initial_result = first.plan(start, goal, [], bounds)
@@ -116,7 +116,7 @@ class BaselinePlannerTests(unittest.TestCase):
 
         self.assertTrue(result.success)
         self.assertEqual(result.diagnostics["first_solution_sample"], initial_result.samples)
-        self.assertEqual(result.samples, initial_result.samples + 300)
+        self.assertEqual(result.samples, initial_result.samples + 600)
         self.assertLess(result.diagnostics["path_cost"], initial_result.diagnostics["path_cost"])
         self.assertAlmostEqual(
             result.diagnostics["path_cost"],

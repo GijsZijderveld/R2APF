@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Paper maps: code A/E/C become paper A/C/E (easy/intermediate/hard).
+"""Paper maps: code A/E/C become paper Scenarios 1/3/5.
 
 Run from the repository root::
 
@@ -42,7 +42,7 @@ from planners.baselines.grid import segment_intersects_circle
 from simulation.env_gen_lunar import generate_lunar_env, make_config
 from simulation.sim_adapter import make_runtime_env_from_geometry
 
-PANELS = (("A", "A", "Easy"), ("E", "C", "Intermediate"), ("C", "E", "Hard"))
+PANELS = (("A", "1", "Easy"), ("E", "3", "Intermediate"), ("C", "5", "Hard"))
 ROCK_COLOR = "#454545"
 CRATER_COLOR = "#e5d4ad"
 ROUTE_COLOR = "#0072b2"
@@ -124,7 +124,7 @@ def create_figure(seed=5000, width_mm=210.0, font_size=10.0,
             ax.set_axisbelow(True)
             ax.grid(color="0.9", linewidth=0.5)
             ax.tick_params(length=3, pad=3)
-            ax.set_title(f"{paper} — {difficulty}", fontsize=font_size + 1,
+            ax.set_title(f"Scenario {paper}", fontsize=font_size + 1,
                          fontweight="bold", pad=25)
             ax.text(0.5, 1.035,
                     f"{config.rock_count} rocks · {config.crater_count} craters",
@@ -195,7 +195,7 @@ def main():
         "resolution_m": args.resolution, "agent_radius_m": args.agent_radius,
         "panels": panels}, indent=2) + "\n", encoding="utf-8")
     plt.close(fig)
-    print("Paper labels A/C/E correspond to code A/E/C. Coverage budgets are fixed.")
+    print("Paper Scenarios 1/3/5 correspond to code A/E/C. Coverage budgets are fixed.")
 
 
 if __name__ == "__main__":

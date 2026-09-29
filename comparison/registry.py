@@ -45,6 +45,10 @@ def build_agent(
         known = ", ".join(available_planners())
         raise KeyError(f"Unknown planner '{name}'. Available: {known}") from exc
 
+    if key in {"astar", "dstar_lite"}:
+        # Their paths contain adjacent grid-cell centers, often much closer
+        # than the distance the rover can travel in one simulation tick.
+        agent_config.setdefault("CONSUME_SHORT_WAYPOINTS", True)
     planner = planner_factory(planner_config)
     return NavigationAgent(planner=planner, **agent_config)
 

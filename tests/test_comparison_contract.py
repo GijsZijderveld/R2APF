@@ -39,6 +39,19 @@ class StraightLinePlanner:
         )
 
 
+class BentGridPathPlanner:
+    name = "bent_grid_path"
+
+    def plan(self, start, goal, known_obstacles, bounds=None):
+        del known_obstacles, bounds
+        return PlanningResult(
+            success=True,
+            path=[start.copy(), np.array([0.03, 0.0]),
+                  np.array([0.06, 0.0]), np.array([0.06, 0.03]),
+                  np.array([0.06, 0.06]), goal.copy()],
+        )
+
+
 class RepeatedFailurePlanner:
     name = "repeated_failure"
 
@@ -92,6 +105,33 @@ class FailureRecoveryAgent:
 
 
 class ComparisonContractTests(unittest.TestCase):
+    def test_grid_follower_uses_full_tick_budget_and_counts_distance_around_bend(self):
+        agent = NavigationAgent(
+            planner=BentGridPathPlanner(), CONSUME_SHORT_WAYPOINTS=True
+        )
+        metrics = run_episode(
+            agent, EmptyEnvironment(), planner_name="grid_test",
+            scenario="test", seed=42, config=BenchmarkConfig(max_steps=1),
+        )
+        np.testing.assert_allclose(agent.position, [0.06, 0.04], atol=1e-12)
+        self.assertEqual(agent.path_index, 3)
+        self.assertAlmostEqual(metrics.executed_path_length, 0.1)
+        self.assertGreater(
+            metrics.executed_path_length,
+            float(np.linalg.norm(agent.position - [0.0, 0.0])),
+        )
+
+    def test_both_grid_planners_move_across_multiple_cells_in_one_tick(self):
+        for planner_name in ("astar", "dstar_lite"):
+            with self.subTest(planner=planner_name):
+                metrics = run_episode(
+                    build_agent(planner_name, planner_config={"resolution": 0.03}),
+                    EmptyEnvironment(), planner_name=planner_name,
+                    scenario="test", seed=42, config=BenchmarkConfig(max_steps=1),
+                )
+                self.assertAlmostEqual(metrics.executed_path_length, 0.1)
+                self.assertEqual(metrics.execution_steps, 1)
+
     def test_resume_preserves_rows_and_skips_only_completed_jobs(self):
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "results.csv"

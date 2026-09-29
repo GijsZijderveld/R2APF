@@ -66,7 +66,13 @@ def run_episode(
             speed_limit=config.speed_limit,
         )
         after = np.asarray(agent.position, dtype=float)
-        path_length += float(np.linalg.norm(after - before))
+        # A grid path can turn at several cell centers within one tick. Its
+        # traveled arc length is the sum of those checked segments, not the
+        # straight-line displacement between the tick endpoints.
+        step_distance = float(getattr(
+            agent, "last_step_path_distance", np.linalg.norm(after - before)
+        ))
+        path_length += step_distance
         execution_steps = step_number + 1
 
         current_diagnostics = dict(agent.diagnostics())
@@ -82,7 +88,7 @@ def run_episode(
             else:
                 consecutive_plan_failures = 0
 
-        stationary = float(np.linalg.norm(after - before)) <= 1e-12
+        stationary = step_distance <= 1e-12
         recovery_state_unchanged = all(
             current_diagnostics.get(key, 0) == previous_diagnostics.get(key, 0)
             for key in (

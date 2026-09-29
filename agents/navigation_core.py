@@ -38,6 +38,7 @@ class NavigationCore:
         self.done = False
         self.planned_path = []
         self.path_index = 0
+        self.last_step_path_distance = 0.0
 
         self.perceived_obstacles = []
         self._known_obstacle_keys = set()
@@ -101,6 +102,7 @@ class NavigationCore:
         return self.goal_pos
 
     def step(self, env, agents, dt, speed_limit, time_step, bounds=None):
+        self.last_step_path_distance = 0.0
         if self.done or self.goal_pos is None:
             return
 
@@ -127,16 +129,35 @@ class NavigationCore:
                     # Planner failed: let the agent backtrack on its OPT spine and try again.
 
         moved = False
+        consume_short_waypoints = bool(self.p.get("CONSUME_SHORT_WAYPOINTS", False))
+        remaining_distance = max(0.0, float(speed_limit) * float(dt))
 
         # --- Move along path if available ---
         if isinstance(self.planned_path, list) and len(self.planned_path) > 0 and self.path_index < len(self.planned_path):
-            target_pos = self.planned_path[self.path_index]
-            d = float(np.linalg.norm(target_pos - self.q))
-            self.debug_status = f"moving to wp {self.path_index} (d={d:.2f})"
-            moved = self._move_towards(target_pos, speed_limit, dt)
+            while self.planned_path and self.path_index < len(self.planned_path):
+                if consume_short_waypoints and remaining_distance <= 1e-12:
+                    break
+                target_pos = self.planned_path[self.path_index]
+                d = float(np.linalg.norm(target_pos - self.q))
+                self.debug_status = f"moving to wp {self.path_index} (d={d:.2f})"
+                before_move = self.q.copy()
+                if consume_short_waypoints:
+                    segment_moved = self._move_towards(target_pos, remaining_distance, 1.0)
+                else:
+                    segment_moved = self._move_towards(target_pos, speed_limit, dt)
+                traveled = float(np.linalg.norm(self.q - before_move))
+                self.last_step_path_distance += traveled
+                remaining_distance -= traveled
+                moved = moved or segment_moved
 
-            # Waypoint reached?
-            if moved and np.linalg.norm(self.q - target_pos) < 0.1:
+                # Grid paths must reach a cell center before turning toward the
+                # next one. The legacy tolerance remains in use for other plans.
+                waypoint_reached = (
+                    np.linalg.norm(self.q - target_pos)
+                    < (1e-9 if consume_short_waypoints else 0.1)
+                )
+                if not (segment_moved and waypoint_reached):
+                    break
                 reached_wp = np.array(target_pos, dtype=float).copy()
 
                 # Capture escape state BEFORE decrementing remaining
@@ -180,6 +201,9 @@ class NavigationCore:
                     if not is_escaping:
                         if (len(self.executed_path_opt) == 0) or (np.linalg.norm(self.executed_path_opt[-1] - reached_wp) > 0.1):
                             self.executed_path_opt.append(reached_wp)
+
+                if not consume_short_waypoints:
+                    break
 
         else:
             # No path or out-of-bounds index: do nothing this tick

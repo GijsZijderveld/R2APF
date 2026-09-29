@@ -11,7 +11,12 @@ from .grid import normalize_bounds
 
 
 class RRTStarPlanner:
-    """Seeded two-dimensional RRT* with circular-obstacle collision checks."""
+    """Seeded anytime RRT* with circular-obstacle collision checks.
+
+    A feasible goal connection does not end the search. By default all
+    ``max_samples`` samples are attempted. ``optimization_samples`` optionally
+    limits the additional samples after the first feasible solution.
+    """
 
     name = "rrt_star"
 
@@ -25,8 +30,16 @@ class RRTStarPlanner:
         agent_radius: float = 0.30,
         safety_margin: float = 0.0,
         seed_offset: int = 100000,
+        optimization_samples: int | None = None,
     ) -> None:
         self.max_samples = int(max_samples)
+        if self.max_samples < 1:
+            raise ValueError("max_samples must be positive")
+        self.optimization_samples = (
+            None if optimization_samples is None else int(optimization_samples)
+        )
+        if self.optimization_samples is not None and self.optimization_samples < 0:
+            raise ValueError("optimization_samples must be nonnegative")
         self.step_size = float(step_size)
         self.neighbor_radius = float(neighbor_radius)
         self.goal_sample_rate = float(goal_sample_rate)
@@ -52,18 +65,22 @@ class RRTStarPlanner:
         goal = np.asarray(goal, dtype=float)
         rng = np.random.default_rng(self._active_seed)
 
-        # At most one node can be accepted per sample, plus start and goal.
-        capacity = self.max_samples + 2
+        # At most one node can be accepted per sample, plus start. Goal
+        # connections are tracked separately so they can improve with the tree.
+        capacity = self.max_samples + 1
         nodes = np.empty((capacity, 2), dtype=float)
         parents = np.empty(capacity, dtype=np.int32)
         costs = np.empty(capacity, dtype=float)
+        children: list[set[int]] = [set() for _ in range(capacity)]
+        goal_edges = np.full(capacity, np.inf, dtype=float)
         nodes[0] = start
         parents[0] = -1
         costs[0] = 0.0
         node_count = 1
 
         collision_checks = 0
-        goal_index = None
+        first_solution_sample = None
+        first_solution_cost = None
         neighbor_radius_sq = self.neighbor_radius * self.neighbor_radius
         goal_tolerance_sq = self.goal_tolerance * self.goal_tolerance
         step_size_sq = self.step_size * self.step_size
@@ -110,6 +127,7 @@ class RRTStarPlanner:
             nodes[new_index] = new
             parents[new_index] = best_parent
             costs[new_index] = best_cost
+            children[best_parent].add(new_index)
             node_count += 1
 
             for index_value in near:
@@ -119,33 +137,47 @@ class RRTStarPlanner:
                     continue
                 collision_checks += 1
                 if self._free(new, nodes[index], known_obstacles):
+                    children[int(parents[index])].remove(index)
                     parents[index] = new_index
-                    costs[index] = proposed
+                    children[new_index].add(index)
+                    # Rewiring changes the cost of every descendant too. Stale
+                    # descendant costs corrupt later parent/rewire decisions.
+                    delta = proposed - costs[index]
+                    stack = [index]
+                    while stack:
+                        descendant = stack.pop()
+                        costs[descendant] += delta
+                        stack.extend(children[descendant])
 
             goal_delta = new - goal
             if float(np.dot(goal_delta, goal_delta)) <= goal_tolerance_sq:
                 collision_checks += 1
                 if self._free(new, goal, known_obstacles):
-                    goal_index = node_count
-                    nodes[goal_index] = goal
-                    parents[goal_index] = new_index
-                    costs[goal_index] = best_cost + float(np.linalg.norm(goal_delta))
-                    node_count += 1
-                    break
-        else:
-            sample_count = self.max_samples
+                    goal_edges[new_index] = float(np.linalg.norm(goal_delta))
+                    if first_solution_sample is None:
+                        first_solution_sample = sample_count
+                        first_solution_cost = float(costs[new_index] + goal_edges[new_index])
 
-        if goal_index is None:
+            if (
+                first_solution_sample is not None
+                and self.optimization_samples is not None
+                and sample_count >= first_solution_sample + self.optimization_samples
+            ):
+                break
+
+        candidates = np.flatnonzero(np.isfinite(goal_edges[:node_count]))
+        if not len(candidates):
             return PlanningResult(
                 False,
                 planning_time_s=time.perf_counter() - started,
                 failure_reason="sample_budget_exhausted",
                 collision_checks=collision_checks,
                 samples=sample_count,
-                diagnostics={"nodes": node_count},
+                diagnostics={"nodes": node_count, "first_solution_sample": None},
             )
 
-        path = []
+        goal_index = int(candidates[np.argmin(costs[candidates] + goal_edges[candidates])])
+        path = [goal.copy()]
         index = goal_index
         while index >= 0:
             path.append(nodes[index].copy())
@@ -157,5 +189,10 @@ class RRTStarPlanner:
             planning_time_s=time.perf_counter() - started,
             collision_checks=collision_checks,
             samples=sample_count,
-            diagnostics={"nodes": node_count, "path_cost": float(costs[goal_index])},
+            diagnostics={
+                "nodes": node_count,
+                "path_cost": float(costs[goal_index] + goal_edges[goal_index]),
+                "first_solution_sample": first_solution_sample,
+                "first_solution_cost": first_solution_cost,
+            },
         )

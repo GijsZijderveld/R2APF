@@ -89,12 +89,39 @@ class BaselinePlannerTests(unittest.TestCase):
     def test_rrt_star_is_deterministic_for_fixed_seed(self):
         planner = RRTStarPlanner(max_samples=1500, seed_offset=123)
         planner.reset(42)
-        first = planner.plan(START, GOAL, [Circle(3.0, 3.0, 0.8)], BOUNDS)
-        second = planner.plan(START, GOAL, [Circle(3.0, 3.0, 0.8)], BOUNDS)
+        obstacle = Circle(3.0, 3.0, 0.8)
+        first = planner.plan(START, GOAL, [obstacle], BOUNDS)
+        second = planner.plan(START, GOAL, [obstacle], BOUNDS)
         self.assertTrue(first.success, first.failure_reason)
         self.assertTrue(second.success, second.failure_reason)
         self.assertEqual(first.samples, second.samples)
         np.testing.assert_allclose(np.asarray(first.path), np.asarray(second.path))
+        self.assertTrue(path_is_collision_free(first.path, [obstacle], 0.3))
+        actual_cost = sum(
+            np.linalg.norm(end - start)
+            for start, end in zip(first.path, first.path[1:])
+        )
+        self.assertAlmostEqual(first.diagnostics["path_cost"], actual_cost)
+
+    def test_rrt_star_improves_after_first_solution(self):
+        start = np.array([2.0, 2.0])
+        goal = np.array([28.0, 28.0])
+        bounds = (0.0, 30.0, 0.0, 30.0)
+        first = RRTStarPlanner(max_samples=2000, optimization_samples=0)
+        improved = RRTStarPlanner(max_samples=2000, optimization_samples=600)
+        first.reset(5000)
+        improved.reset(5000)
+        initial_result = first.plan(start, goal, [], bounds)
+        result = improved.plan(start, goal, [], bounds)
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.diagnostics["first_solution_sample"], initial_result.samples)
+        self.assertEqual(result.samples, initial_result.samples + 600)
+        self.assertLess(result.diagnostics["path_cost"], initial_result.diagnostics["path_cost"])
+        self.assertAlmostEqual(
+            result.diagnostics["path_cost"],
+            sum(np.linalg.norm(b - a) for a, b in zip(result.path, result.path[1:])),
+        )
 
 
 if __name__ == "__main__":

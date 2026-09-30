@@ -77,6 +77,39 @@ class BaselinePlannerTests(unittest.TestCase):
         self.assertEqual(third.diagnostics["changed_cells"], 0)
         self.assertEqual(third.diagnostics["changed_edges"], 0)
 
+    def test_dstar_lite_repairs_tied_priority_keys_after_new_obstacles(self):
+        # This update used to terminate with an unrepaired vertex on the route:
+        # numerically equal primary keys were ordered differently by the heap.
+        bounds = (0.0, 30.0, 0.0, 30.0)
+        goal = np.array([28.0, 28.0])
+        planner = DStarLitePlanner(resolution=0.3)
+        first = planner.plan(
+            np.array([1.193676061598316, 2.8142897459337686]), goal,
+            [], bounds,
+        )
+        obstacles = [
+            Circle(6.993457028442698, 5.948503213132516, 0.07062496655906744),
+            Circle(6.862680737041771, 6.721820138182368, 0.0935604026750793),
+            Circle(7.0922453939734975, 6.906594295826049, 0.037209736874709944),
+            Circle(7.430784507768058, 7.794658487652297, 0.7351600706985476),
+        ]
+        start = np.array([4.177299576402272, 5.977299576402133])
+        repaired = planner.plan(start, goal, obstacles, bounds)
+        oracle = AStarPlanner(resolution=0.3).plan(start, goal, obstacles, bounds)
+        self.assertTrue(first.success, first.failure_reason)
+        self.assertTrue(repaired.success, repaired.failure_reason)
+        self.assertTrue(oracle.success, oracle.failure_reason)
+        self.assertTrue(path_is_collision_free(repaired.path, obstacles, 0.3))
+
+        def grid_cost(path):
+            cells = [planner.grid.world_to_cell(point) for point in path]
+            return sum(
+                np.linalg.norm(np.subtract(b, a)) * planner.grid.resolution
+                for a, b in zip(cells, cells[1:])
+            )
+
+        self.assertAlmostEqual(grid_cost(repaired.path), grid_cost(oracle.path), places=6)
+
     def test_grid_edges_reject_circle_intersections_between_free_centers(self):
         obstacle = Circle(3.0, 3.0, 0.31)
         start = np.array([1.5, 2.55])

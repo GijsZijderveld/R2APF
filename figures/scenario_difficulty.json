@@ -1,0 +1,60 @@
+{
+  "width_mm": 210.0,
+  "font_size_pt": 10.0,
+  "route_method": null,
+  "resolution_m": 0.1,
+  "agent_radius_m": 0.25,
+  "panels": [
+    {
+      "code_scenario": "A",
+      "paper_scenario": "1",
+      "difficulty": "Easy",
+      "seed": 5000,
+      "rock_count": 42,
+      "crater_count": 38,
+      "start": [
+        0.6666466209070873,
+        1.565460563128121
+      ],
+      "goal": [
+        27.677309942426053,
+        28.003617486969084
+      ],
+      "route_length_m": null
+    },
+    {
+      "code_scenario": "E",
+      "paper_scenario": "3",
+      "difficulty": "Intermediate",
+      "seed": 5000,
+      "rock_count": 112,
+      "crater_count": 28,
+      "start": [
+        0.6666466209070873,
+        1.565460563128121
+      ],
+      "goal": [
+        27.677309942426053,
+        28.003617486969084
+      ],
+      "route_length_m": null
+    },
+    {
+      "code_scenario": "C",
+      "paper_scenario": "5",
+      "difficulty": "Hard",
+      "seed": 5000,
+      "rock_count": 137,
+      "crater_count": 24,
+      "start": [
+        0.6666466209070873,
+        1.565460563128121
+      ],
+      "goal": [
+        27.677309942426053,
+        28.003617486969084
+      ],
+      "route_length_m": null
+    }
+  ]
+}

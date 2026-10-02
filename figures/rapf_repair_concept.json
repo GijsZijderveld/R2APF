@@ -1,0 +1,31 @@
+{
+  "scenario_code": "C",
+  "seed": 5073,
+  "width_mm": 210.0,
+  "font_size_pt": 10.0,
+  "start_xy_m": [
+    9.0,
+    13.0
+  ],
+  "stuck_xy_m": [
+    14.0,
+    9.0
+  ],
+  "goal_xy_m": [
+    21.0,
+    9.0
+  ],
+  "initial_route_waypoints": 13,
+  "initial_route_collision_free": true,
+  "artificial_obstacle_radius_m": 0.6515262510741205,
+  "repulsive_influence_radius_m": 1.5,
+  "influence_horizon_m": 2.1515262510741207,
+  "repair_anchor_xy_m": [
+    11.96,
+    10.080000000000002
+  ],
+  "repair_anchor_distance_m": 2.3082460874005615,
+  "repair_anchor_outside_horizon": true,
+  "agent_clearance_radius_m": 0.3,
+  "route_visualization": "A* routes, line-segment validated; recovery schematic"
+}

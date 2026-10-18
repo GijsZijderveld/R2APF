@@ -1,48 +1,34 @@
 # Experiments
 
-This directory preserves the tuning and sensing-benchmark artifacts used during development of the RAPF implementations.
+## Final comparison
 
-The files copied from `swarm_apf_sim` are intentionally unchanged. This preserves traceability to the original results, including legacy filenames and parameter choices.
+[`comparisons/totalResults.csv`](comparisons/totalResults.csv) is the final 15,000-episode dataset. Its three committed summaries are in [`comparisons/summary/`](comparisons/summary/). See the [comparison documentation](comparisons/README.md) for file meanings, campaign coverage, configuration, and commands.
 
-## Contents
+## Historical sensing references
 
-- `benchmarks/` contains the 2,500-episode sensing benchmark tables for five scenarios and 500 seeds per scenario.
-- `optuna/` contains the final retained tuning script and its original SQLite study database.
-- The aggregate three-scenario benchmark tables remain at the repository root because the original benchmark script writes them there.
+`benchmarks/` retains three development tables because existing tools use them:
 
-Install the additional experiment dependencies with:
+| File | Consumer and purpose |
+| --- | --- |
+| `sensing_v4_withvo.csv` | `scripts/verify_rapf_regression.py`: historical R2APF regression reference |
+| `sensing_v4_oldRAPF.csv` | Regression verifier, `sensing_benchmark_compare.py`, and `blocked_steps_analysis.py`: historical RAPF reference |
+| `sensing_v4_manual.csv` | Historical comparison and blocked-step analysis |
 
-```bash
-python -m pip install -r requirements-experiments.txt
-```
+These tables are not the final controlled comparison. The regression verifier preserves their different original execution routes, including a 1.5 m/s velocity clamp for `withvo` versus a 1.0 m/s manual loop for `oldRAPF`. Do not interpret those historical samples as a common-setting head-to-head comparison.
 
-## RAPF v4 sensing benchmark
-
-Run from the repository root:
-
-```bash
-python -m benchmark.benchmark_sensing_RAPF --episodes 10
-```
-
-The script now imports the unversioned `NavigationCore`. The preserved
-`oldRAPF` filename is only a historical artifact label; final comparisons use
-the planner names `rapf` and `r2apf`.
-
-Existing result tables are retained as historical artifacts and should not be overwritten when reproducing experiments. Use a separate output location or preserve generated files under a new name.
-
-## Analysis
-
-General result analysis:
+Run historical analysis from the repository root:
 
 ```bash
 python sensing_benchmark.py experiments/benchmarks/sensing_v4_manual.csv
-```
-
-Comparison and blocked-step analysis currently contain the original hard-coded input paths:
-
-```bash
 python sensing_benchmark_compare.py
 python blocked_steps_analysis.py
+python scripts/verify_rapf_regression.py --planner both --episodes 3
 ```
 
-See `TODO.md` for unresolved naming, provenance, and reproducibility issues.
+The two comparison analysis scripts use the retained table paths internally. Historical benchmark generators remain in `benchmark/`; their outputs are development artifacts rather than replacements for `comparisons/totalResults.csv`.
+
+## Tuning provenance
+
+[`optuna/`](optuna/README.md) retains `rapf_tune_v3.py` and the original SQLite study database. These describe historical parameter development, not a direct tuning pipeline for the complete final sensing/navigation comparison. Copy the database before running additional tuning.
+
+Install analysis and tuning dependencies with `python -m pip install -r requirements-experiments.txt`.

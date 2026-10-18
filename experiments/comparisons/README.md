@@ -1,41 +1,43 @@
-# Controlled planner comparisons
+# Final planner comparison
 
-Generated comparison results belong in this directory. Do not overwrite the
-preserved historical tables in `experiments/benchmarks/`.
+## Authoritative files
 
-Start with a short R2APF smoke campaign:
+| File | Contents |
+| --- | --- |
+| `totalResults.csv` | Final raw results: 15,000 unique planner/scenario/seed cases |
+| `summary/summary_total_results.csv` | Six overall planner summaries |
+| `summary/summary_total_results_by_scenario.csv` | Thirty planner/scenario summaries |
+| `summary/failure_reasons_total_results.csv` | Failure counts and rates by planner/scenario |
 
-```bash
-python -m scripts.run_comparison \
-  --planner r2apf \
-  --planner-config configs/planners/r2apf.json \
-  --episodes 1 \
-  --output experiments/comparisons/r2apf_smoke.csv
-```
+The final dataset was updated on 2 October 2026 in commit `ca128cffa98e9f7b2323c542e5a60e2369ce3bfa`. Each of APF, A*, D* Lite, R2APF, RAPF, and RRT* has 500 episodes per scenario A–E, with seeds 5000–5499. The final RRT* rows contain the measurements from the 600-extra-sample rerun, replacing the earlier first-solution results. The separate rerun export is redundant and has been removed alongside older campaigns and smoke outputs. Git history retains those exports.
 
-The default full configuration covers five scenarios and 500 seeds per
-scenario. Do not treat smoke-test results as publication results.
+## Configuration and interpretation
 
-To finish a partial campaign, point `--output` at its existing CSV and select
-all planners:
+- `configs/benchmark.json` contains the current campaign and shared execution settings.
+- `configs/planners/*.json` contains the current planner settings. RRT* uses `optimization_samples: 600` and `max_samples: 2000`.
+- `configs/comparison_policy.yaml` records design rationale and historical/provisional policy notes. The runner reads the JSON settings; it does not load this YAML as executable configuration.
+- The CSV stores episode outcomes, execution metrics, planner timing, failures, and supported mechanism diagnostics. Blank planner-specific diagnostics mean unavailable, not zero.
+- Executed path length is measured in metres and timing in seconds. Overall tables include both all-episode and successful-episode path-length statistics. Failed episodes can have short partial paths.
+- The final dataset combines retained runs and replacement reruns. It does not embed per-row settings, dependency versions, machine details, or generating commits. Current configuration files are available, but complete run provenance cannot be recovered from the CSV alone.
 
-```bash
-python -m scripts.run_comparison --planner all \
-  --output experiments/comparisons/results.csv
-```
+## Regenerate summaries
 
-The runner skips each planner/scenario/seed combination already present in
-that CSV and adds missing rows. Use the same campaign and planner settings
-as the existing rows. The CSV does not record the settings used for each row.
-
-Summarize the combined raw results with:
+From the repository root, with `requirements-experiments.txt` installed:
 
 ```bash
-python scripts/summarize_comparison.py \
-  experiments/comparisons/results.csv
+python scripts/summarize_comparison.py experiments/comparisons/totalResults.csv \
+  --output-dir outputs/final-summary
 ```
 
-This writes `summary_overall.csv`, `summary_by_scenario.csv`, and
-`failure_reasons.csv` under `experiments/comparisons/summary/`. Executed path
-length is reported both across all episodes and across successful episodes
-only. Unsupported planner-specific diagnostics remain blank.
+The script writes the three `*_total_results*` summary files listed above. Compare the generated files with the committed summaries before replacing them.
+
+## Run a separate campaign
+
+```bash
+python scripts/run_comparison.py --planner all \
+  --output outputs/comparison/results.csv
+python scripts/summarize_comparison.py outputs/comparison/results.csv \
+  --output-dir outputs/comparison/summary
+```
+
+Add `--episodes 1` for one seed per scenario (30 episodes across all planners). The full configuration has 15,000 episodes. The runner checkpoints completed cases and resumes by skipping existing planner/scenario/seed keys. Resume only with unchanged settings; use a new path for a different configuration. Keep the committed final dataset unchanged when experimenting.

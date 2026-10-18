@@ -27,6 +27,6 @@ budget even after reaching the goal. The configured 600 additional samples
 were selected after a preliminary sample-budget sensitivity study. Calls are
 still capped at `max_samples`, so fewer than 600 attempts remain when the
 first path appears late. Report both executed route length and cumulative
-planning time when assessing this setting. Existing comparison CSVs
-were produced with the old first-solution implementation and cannot be used
-as results for this version of RRT*.
+planning time when assessing this setting. The final `experiments/comparisons/totalResults.csv` includes the updated
+600-extra-sample RRT* results. Earlier first-solution outputs remain in Git
+history and do not represent this configuration.

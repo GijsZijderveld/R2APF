@@ -80,7 +80,7 @@ def main() -> None:
     parser.add_argument("--episodes", type=int, default=None)
     parser.add_argument(
         "--output",
-        default="experiments/comparisons/results_22092026.csv",
+        default="outputs/comparison/results.csv",
     )
     args = parser.parse_args()
 

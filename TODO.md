@@ -1,4 +1,9 @@
-# TODO
+# Development backlog
+
+The final result selection is documented in `experiments/comparisons/README.md`.
+The extraction-era items below are a development backlog, not a list of pending
+steps for selecting the final dataset. They do not establish that every
+publication-validation task has been completed.
 
 This file records issues found while extracting the R2APF code from `swarm_apf_sim`. They are intentionally **not fixed in the initial extraction**, because the first goal is to preserve the behavior of the thesis implementation.
 
@@ -35,7 +40,7 @@ This file records issues found while extracting the R2APF code from `swarm_apf_s
 - [ ] Correct ambiguous benchmark labels, including code that refers to an improved planner as `oldRAPF`, before publishing new comparison results.
 - [x] Separate core runtime dependencies from optional Optuna/tuning dependencies.
 - [ ] Replace hard-coded analysis input paths with command-line arguments after the historical baseline is protected by tests.
-- [ ] Decide which of `sensing_v4.csv`, `sensing_v4_withvo.csv`, `sensing_v4_manual.csv`, and `sensing_v4_oldRAPF.csv` are publication results versus intermediate runs.
+- [x] Identify the final comparison dataset: `experiments/comparisons/totalResults.csv`; retain only historical sensing tables consumed by regression or analysis tools.
 - [x] Add basic classical APF, A*, D* Lite, and RRT* planner implementations.
 - [ ] Add the original RAPF configuration as a separate contribution/ablation baseline.
 - [ ] Validate and tune every new baseline through sensitivity studies before publication experiments.

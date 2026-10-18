@@ -5,9 +5,10 @@ planning families with one shared navigation and measurement layer.
 
 ## Comparison policy
 
-`configs/comparison_policy.yaml` is the single source of truth for physical,
-sensing, execution, fairness, and reporting choices. It contains two separate
-profiles:
+`configs/comparison_policy.yaml` records the rationale for physical,
+sensing, execution, fairness, and reporting choices. The runner loads
+`configs/benchmark.json` and `configs/planners/*.json`; it does not execute
+the YAML policy. The policy contains two profiles:
 
 - `historical_r2apf` records the values actually used by the preserved RAPF
   implementation, including conflicting values that belong to different
@@ -16,8 +17,9 @@ profiles:
   obey in the new comparison.
 
 Do not silently replace inherited historical values with controlled-comparison
-values. Parameters marked `open` or `provisional` must be resolved through
-the publication gate before the full experiment campaign.
+values. The YAML retains design-stage `open` and `provisional` notes; these
+are not a record of completed validation. The final recorded campaign and
+its provenance limits are documented in `experiments/comparisons/README.md`.
 
 ## Design
 
